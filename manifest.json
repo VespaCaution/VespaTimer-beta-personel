@@ -1,0 +1,27 @@
+{
+  "name": "VespaTimer",
+  "short_name": "VespaTimer",
+  "description": "Assistant digital pour relevés Pot-à-Mèche et triangulation de nids de frelons asiatiques",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
+  "background_color": "#f5f2e6",
+  "theme_color": "#d4a853",
+  "orientation": "any",
+  "icons": [
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Export/Import", "short_name": "Export", "url": "./index.html?action=export", "icons": [{ "src": "icon.png", "sizes": "96x96" }] },
+    { "name": "Carte", "short_name": "Carte", "url": "./index.html?action=map", "icons": [{ "src": "icon.png", "sizes": "96x96" }] }
+  ],
+  "lang": "fr",
+  "categories": ["utilities", "productivity", "tools"],
+  "launch_handler": { "client_mode": "navigate-existing" },
+  "prefer_related_applications": false
+}

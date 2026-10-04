@@ -505,17 +505,25 @@ function exportJSON(){closeModal('exportModal');var data={version:'2.0',hornets:
 function exportPDF(){
   closeModal('exportModal');
   if(map){
-    // Calculate bounds to fit all nests + pot
     var allPoints=[L.latLng(surveyLocation.lat,surveyLocation.lng)];
     for(var i=0;i<hornets.length;i++){
       var h=hornets[i];
       if(!h.flights.length)continue;
       var n=getNestCoords(h);
-      if(n)allPoints.push(L.latLng(n.lat,n.lng));
+      if(n){
+        allPoints.push(L.latLng(n.lat,n.lng));
+        // Add oval extents (200m x 100m around nest)
+        var ovalHalfWidth=100/111320;
+        var ovalHalfHeight=50/111320;
+        allPoints.push(L.latLng(n.lat+ovalHalfHeight,n.lng+ovalHalfWidth));
+        allPoints.push(L.latLng(n.lat-ovalHalfHeight,n.lng-ovalHalfWidth));
+        allPoints.push(L.latLng(n.lat+ovalHalfHeight,n.lng-ovalHalfWidth));
+        allPoints.push(L.latLng(n.lat-ovalHalfHeight,n.lng+ovalHalfWidth));
+      }
     }
     if(allPoints.length>1){
       var bounds=L.latLngBounds(allPoints);
-      map.fitBounds(bounds,{padding:[30,30],maxZoom:17});
+      map.fitBounds(bounds,{padding:[80,80],maxZoom:16});
     }else{
       map.setView([surveyLocation.lat,surveyLocation.lng],16);
     }

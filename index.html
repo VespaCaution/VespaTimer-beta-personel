@@ -756,7 +756,10 @@ function boot(){
   updateNotifButton();
   applyTranslations();
   renderAll();
-  setTimeout(initMap,500);
+  setTimeout(function(){
+    initMap();
+    setTimeout(function(){if(map)drawAnalysis();},800);
+  },500);
   handleUrlParams();
   updateDateTime();
   checkFirstLaunch();

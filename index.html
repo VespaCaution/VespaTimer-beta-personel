@@ -260,7 +260,7 @@ function showConfirmAlert(message,icon,callback){document.getElementById('confir
 function closeConfirmAlert(result){document.getElementById('confirmAlertOverlay').style.display='none';if(result&&confirmCallback){confirmCallback();}confirmCallback=null;}
 function showToast(message){var toast=document.createElement('div');toast.className='toast';toast.textContent=message;document.body.appendChild(toast);setTimeout(function(){toast.remove();},3000);}
 
-function sendNotification(title,body){if(!notificationsEnabled)return;if('Notification'in window&&Notification.permission==='granted'){if(navigator.serviceWorker){navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icon.png',badge:'icon.png',vibrate:[100,50,100]});});}else{try{new Notification(title,{body:body,icon:'icon.png'});}catch(e){}}}}
+function sendNotification(title,body){if(!notificationsEnabled)return;if('Notification'in window&&Notification.permission==='granted'){if(navigator.serviceWorker){navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icon.png',badge:'icon.png'});});}else{try{new Notification(title,{body:body,icon:'icon.png'});}catch(e){}}}}
 function toggleNotifications(){notificationsEnabled=!notificationsEnabled;localStorage.setItem('notif_enabled',notificationsEnabled);updateNotifButton();if(notificationsEnabled){if('Notification'in window&&Notification.permission!=='granted'){Notification.requestPermission().then(function(permission){if(permission==='granted'){showToast(t('notif_enabled'));}else{notificationsEnabled=false;localStorage.setItem('notif_enabled',false);updateNotifButton();showToast(t('notif_denied'));}});}else{showToast(t('notif_enabled'));}}else{showToast(t('notif_disabled'));}}
 function updateNotifButton(){var btn=document.getElementById('notifBtnLabel');if(btn){btn.textContent=notificationsEnabled?'✅ ON':'🔕 OFF';}}
 function checkHistoryExpiry(){var hist=getHist();var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;var expiring=hist.filter(function(e){var diff=new Date(e.date).getTime()-cutoff;return diff<24*60*60*1000&&diff>0;});if(expiring.length>0){sendNotification(t('history_expiry_title'),expiring.length+' '+t('history_expiry_text'));}}
@@ -434,8 +434,17 @@ function initMap(){
   }catch(e){console.error('Map init failed:',e);}
 }
 
-function updatePotMarker(){if(!map)return;if(potMarker)map.removeLayer(potMarker);var beeIcon=L.divIcon({html:'🍯',iconSize:[30,30],iconAnchor:[15,15],className:''});potMarker=L.marker([surveyLocation.lat,surveyLocation.lng],{draggable:false,icon:beeIcon}).addTo(map);}
-
+function updatePotMarker(){
+  if(!map)return;
+  if(potMarker)map.removeLayer(potMarker);
+  var beeIcon=L.divIcon({
+    html:'<div style="font-size:30px;line-height:1;text-align:center;width:30px;height:30px;display:flex;align-items:center;justify-content:center;">🍯</div>',
+    iconSize:[30,30],
+    iconAnchor:[15,15],
+    className:''
+  });
+  potMarker=L.marker([surveyLocation.lat,surveyLocation.lng],{draggable:false,icon:beeIcon}).addTo(map);
+}
 function drawAnalysis(histData){
   if(!map)return;
   for(var i=0;i<mapLines.length;i++){if(map.hasLayer(mapLines[i]))map.removeLayer(mapLines[i]);}

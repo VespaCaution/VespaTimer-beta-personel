@@ -24,6 +24,7 @@
     <title>VespaTimer</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-image@0.4.0/leaflet-image.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root { --bg: #f5f2e6; --card: #ffffff; --text: #3b2e1e; --gold: #d4a853; --danger: #c47b6b; --border: #e7d7b8; }
@@ -514,31 +515,66 @@ function downloadFile(b,n){var a=document.createElement('a');a.href=URL.createOb
 function exportJSON(){closeModal('exportModal');var data={version:'2.0',hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo};dl(new Blob([JSON.stringify(data)],{type:'application/json'}),'vespatimer.json');}
 function exportPDF(){
   closeModal('exportModal');
-  if(map){
-    var allPoints=[L.latLng(surveyLocation.lat,surveyLocation.lng)];
-    for(var i=0;i<hornets.length;i++){
-      var h=hornets[i];
-      if(!h.flights.length)continue;
-      var n=getNestCoords(h);
-      if(n){
-        allPoints.push(L.latLng(n.lat,n.lng));
-        // Add oval extents (200m x 100m around nest)
-        var ovalHalfWidth=100/111320;
-        var ovalHalfHeight=50/111320;
-        allPoints.push(L.latLng(n.lat+ovalHalfHeight,n.lng+ovalHalfWidth));
-        allPoints.push(L.latLng(n.lat-ovalHalfHeight,n.lng-ovalHalfWidth));
-        allPoints.push(L.latLng(n.lat+ovalHalfHeight,n.lng-ovalHalfWidth));
-        allPoints.push(L.latLng(n.lat-ovalHalfHeight,n.lng+ovalHalfWidth));
-      }
-    }
-    if(allPoints.length>1){
-      var bounds=L.latLngBounds(allPoints);
-      map.fitBounds(bounds,{padding:[80,80],maxZoom:16});
-    }else{
-      map.setView([surveyLocation.lat,surveyLocation.lng],16);
+  if(!map){setTimeout(function(){window.print();},600);return;}
+  
+  // First, fit bounds to show everything
+  var allPoints=[L.latLng(surveyLocation.lat,surveyLocation.lng)];
+  for(var i=0;i<hornets.length;i++){
+    var h=hornets[i];
+    if(!h.flights.length)continue;
+    var n=getNestCoords(h);
+    if(n){
+      allPoints.push(L.latLng(n.lat,n.lng));
+      var ovalHalfWidth=100/111320;
+      var ovalHalfHeight=50/111320;
+      allPoints.push(L.latLng(n.lat+ovalHalfHeight,n.lng+ovalHalfWidth));
+      allPoints.push(L.latLng(n.lat-ovalHalfHeight,n.lng-ovalHalfWidth));
+      allPoints.push(L.latLng(n.lat+ovalHalfHeight,n.lng-ovalHalfWidth));
+      allPoints.push(L.latLng(n.lat-ovalHalfHeight,n.lng+ovalHalfWidth));
     }
   }
-  setTimeout(function(){window.print();},600);
+  if(allPoints.length>1){
+    map.fitBounds(L.latLngBounds(allPoints),{padding:[80,80],maxZoom:16});
+  }
+  
+  // Wait for map to fully render, then screenshot
+  setTimeout(function(){
+    var mapEl=document.getElementById('map');
+    if(typeof leafletImage==='undefined'){
+      // Fallback if library didn't load
+      setTimeout(function(){window.print();},400);
+      return;
+    }
+    leafletImage(map,function(err,canvas){
+      if(err||!canvas){
+        setTimeout(function(){window.print();},400);
+        return;
+      }
+      var imgData=canvas.toDataURL('image/png');
+      // Replace map with the screenshot for print
+      var originalHTML=mapEl.innerHTML;
+      mapEl.innerHTML='';
+      var img=document.createElement('img');
+      img.src=imgData;
+      img.style.width='100%';
+      img.style.height='auto';
+      img.style.borderRadius='16px';
+      img.id='mapScreenshot';
+      mapEl.appendChild(img);
+      
+      // Print
+      setTimeout(function(){
+        window.print();
+        // Restore map after print
+        setTimeout(function(){
+          mapEl.innerHTML=originalHTML;
+          map.invalidateSize();
+          drawAnalysis(getHist());
+        },1000);
+      },300);
+    });
+  },700);
+  
   sendNotification(t('export_success'),'vespatimer.pdf');
 }
 function exportGPX(){closeModal('exportModal');var g='<?xml version="1.0"?><gpx version="1.1"><wpt lat="'+surveyLocation.lat+'" lon="'+surveyLocation.lng+'"><name>Pot</name></wpt>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)g+='<wpt lat="'+n.lat.toFixed(6)+'" lon="'+n.lng.toFixed(6)+'"><name>'+h.name+'</name></wpt>';}g+='</gpx>';dl(new Blob([g],{type:'application/gpx+xml'}),'vespatimer.gpx');}

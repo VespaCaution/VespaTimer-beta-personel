@@ -514,36 +514,51 @@ function downloadFile(b,n){var a=document.createElement('a');a.href=URL.createOb
 function exportJSON(){closeModal('exportModal');var data={version:'2.0',hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo};dl(new Blob([JSON.stringify(data)],{type:'application/json'}),'vespatimer.json');}
 function exportPDF(){
   closeModal('exportModal');
-  if(map){
-    var allPoints=[L.latLng(surveyLocation.lat,surveyLocation.lng)];
-    for(var i=0;i<hornets.length;i++){
-      var h=hornets[i];
-      if(!h.flights.length)continue;
-      var n=getNestCoords(h);
-      if(n)allPoints.push(L.latLng(n.lat,n.lng));
-    }
-    
-    var bounds=L.latLngBounds(allPoints);
-    // Calculate span and add 20% padding in geographic coordinates
-    var spanLat=bounds.getNorth()-bounds.getSouth();
-    var spanLng=bounds.getEast()-bounds.getWest();
-    var padLat=Math.max(spanLat*0.2,300/111320);
-    var padLng=Math.max(spanLng*0.2,300/111320);
-    var paddedBounds=L.latLngBounds(
-      L.latLng(bounds.getSouth()-padLat,bounds.getWest()-padLng),
-      L.latLng(bounds.getNorth()+padLat,bounds.getEast()+padLng)
-    );
-    
-    if(allPoints.length>1){
-      map.fitBounds(paddedBounds,{maxZoom:17});
-    }else{
-      map.setView([surveyLocation.lat,surveyLocation.lng],15);
-    }
+  if(!map){
+    setTimeout(function(){window.print();},500);
+    return;
   }
+  
+  // Step 1: Center on the pot
+  map.setView([surveyLocation.lat,surveyLocation.lng],17);
+  
+  // Step 2: Calculate max distance from pot to any nest
+  var maxDistance=0;
+  for(var i=0;i<hornets.length;i++){
+    var h=hornets[i];
+    if(!h.flights.length)continue;
+    var n=getNestCoords(h);
+    if(!n)continue;
+    var d=map.distance([surveyLocation.lat,surveyLocation.lng],[n.lat,n.lng]);
+    if(d>maxDistance)maxDistance=d;
+  }
+  
+  // Step 3: Add 40% margin (so pot and nests have breathing room)
+  var requiredRadius=maxDistance*1.4+200;
+  
+  // Step 4: Zoom out until required radius fits
+  // Map view height is 350px, so half-height is 175px
+  // Find zoom level where requiredRadius meters fits in 175px
   setTimeout(function(){
-    window.print();
-    sendNotification(t('export_success'),'vespatimer.pdf');
-  },700);
+    var mapHeight=map.getSize().y;
+    var targetPixels=mapHeight/2-30;
+    if(requiredRadius>0&&targetPixels>0){
+      // Calculate zoom level based on meters-per-pixel at each zoom
+      var targetZoom=17;
+      for(var z=17;z>=1;z--){
+        var metersPerPixel=40075016.686*Math.cos(surveyLocation.lat*Math.PI/180)/Math.pow(2,z+8);
+        if(requiredRadius/metersPerPixel<=targetPixels){
+          targetZoom=z;
+          break;
+        }
+      }
+      map.setView([surveyLocation.lat,surveyLocation.lng],targetZoom);
+    }
+    setTimeout(function(){
+      window.print();
+      sendNotification(t('export_success'),'vespatimer.pdf');
+    },700);
+  },300);
 }
 function exportGPX(){closeModal('exportModal');var g='<?xml version="1.0"?><gpx version="1.1"><wpt lat="'+surveyLocation.lat+'" lon="'+surveyLocation.lng+'"><name>Pot</name></wpt>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)g+='<wpt lat="'+n.lat.toFixed(6)+'" lon="'+n.lng.toFixed(6)+'"><name>'+h.name+'</name></wpt>';}g+='</gpx>';dl(new Blob([g],{type:'application/gpx+xml'}),'vespatimer.gpx');}
 function exportKML(){closeModal('exportModal');var k='<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>Pot</name><Point><coordinates>'+surveyLocation.lng+','+surveyLocation.lat+',0</coordinates></Point></Placemark>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)k+='<Placemark><name>'+h.name+'</name><Point><coordinates>'+n.lng.toFixed(6)+','+n.lat.toFixed(6)+',0</coordinates></Point></Placemark>';}k+='</Document></kml>';dl(new Blob([k],{type:'application/vnd.google-earth.kml+xml'}),'vespatimer.kml');}

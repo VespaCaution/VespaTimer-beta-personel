@@ -516,31 +516,26 @@ function exportPDF(){
   closeModal('exportModal');
   if(map){
     var allPoints=[L.latLng(surveyLocation.lat,surveyLocation.lng)];
-    
-    // Add padding around the pot itself (so it's never at the edge)
-    var potPadding=150/111320;
-    allPoints.push(L.latLng(surveyLocation.lat+potPadding,surveyLocation.lng+potPadding));
-    allPoints.push(L.latLng(surveyLocation.lat-potPadding,surveyLocation.lng-potPadding));
-    
-    // Add all nest positions AND oval extents
     for(var i=0;i<hornets.length;i++){
       var h=hornets[i];
       if(!h.flights.length)continue;
       var n=getNestCoords(h);
-      if(n){
-        allPoints.push(L.latLng(n.lat,n.lng));
-        // Oval is 200m wide x 100m deep, but rotated by direction
-        // Use conservative radius of 150m in all directions
-        var ovalPad=150/111320;
-        allPoints.push(L.latLng(n.lat+ovalPad,n.lng+ovalPad));
-        allPoints.push(L.latLng(n.lat-ovalPad,n.lng-ovalPad));
-        allPoints.push(L.latLng(n.lat+ovalPad,n.lng-ovalPad));
-        allPoints.push(L.latLng(n.lat-ovalPad,n.lng+ovalPad));
-      }
+      if(n)allPoints.push(L.latLng(n.lat,n.lng));
     }
     
+    var bounds=L.latLngBounds(allPoints);
+    // Calculate span and add 20% padding in geographic coordinates
+    var spanLat=bounds.getNorth()-bounds.getSouth();
+    var spanLng=bounds.getEast()-bounds.getWest();
+    var padLat=Math.max(spanLat*0.2,300/111320);
+    var padLng=Math.max(spanLng*0.2,300/111320);
+    var paddedBounds=L.latLngBounds(
+      L.latLng(bounds.getSouth()-padLat,bounds.getWest()-padLng),
+      L.latLng(bounds.getNorth()+padLat,bounds.getEast()+padLng)
+    );
+    
     if(allPoints.length>1){
-      map.fitBounds(L.latLngBounds(allPoints),{padding:[60,60],maxZoom:17});
+      map.fitBounds(paddedBounds,{maxZoom:17});
     }else{
       map.setView([surveyLocation.lat,surveyLocation.lng],15);
     }

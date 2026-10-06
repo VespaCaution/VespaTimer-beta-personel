@@ -274,7 +274,7 @@ function deleteHistEntry(index){var hist=getHist();if(index<0||index>=hist.lengt
 
 function resumeHistEntryByIndex(index){var hist=getHist();if(index<0||index>=hist.length){showAlert(t('entry_not_found'),'❌');return;}var entry=hist[index];var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasCurrentData){saveHist();}surveyLocation=entry.location||{lat:46.8,lng:6.8,name:''};inspectorName=entry.inspectorName||'';notes=entry.notes||'';if(entry.personalInfo){personalInfo=entry.personalInfo;}else{personalInfo={firstName:'',lastName:'',phone:''};}if(entry.hornets&&entry.hornets.length){hornets=entry.hornets.map(function(h){var nh=createHornet(h.name);nh.direction=h.direction||0;nh.flights=h.flights||[];nh.color=h.color||null;return nh;});}else{hornets=[createHornet('Frelon 1')];}resumedFromIndex=index;localStorage.setItem('resumed_idx',resumedFromIndex);document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';document.getElementById('locationInput').value=surveyLocation.name||surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);document.getElementById('locationDisplay').textContent=surveyLocation.name||surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);document.getElementById('inspectorInput').value=inspectorName;document.getElementById('notesField').value=notes;updatePotMarker();if(map)map.setView([surveyLocation.lat,surveyLocation.lng],16);renderAll();showToast(t('pot_resumed'));}
 
-function toggleHistoricalFlights(entryId){historicalVisibility[entryId]=!historicalVisibility[entryId];drawAnalysis(getHist());}
+function toggleHistoricalFlights(d){historicalVisibility[d]=!historicalVisibility[d];drawAnalysis(getHist());}
 
 function openModal(id){document.getElementById(id).style.display='flex';}
 function closeModal(id){document.getElementById(id).style.display='none';if(id==='compassModal')stopCompass();}
@@ -449,11 +449,7 @@ function drawAnalysis(histData){
   if(!map)return;
   for(var i=0;i<mapLines.length;i++){if(map.hasLayer(mapLines[i]))map.removeLayer(mapLines[i]);}
   mapLines=[];
-  if(window.historicalLayer){map.removeLayer(window.historicalLayer);window.historicalLayer=null;}
-  window.historicalLayer=L.layerGroup().addTo(map);
-
   var preds=[];
-  // Current hornets (bottom layer)
   for(var idx=0;idx<hornets.length;idx++){
     var h=hornets[idx];
     if(!h.flights.length)continue;
@@ -469,48 +465,39 @@ function drawAnalysis(histData){
     mapLines.push(m);
     preds.push({name:h.name,dist:nd.distance});
   }
-
-  // Historical (top layer)
   if(histData&&histData.length){
     for(var ei=0;ei<histData.length;ei++){
-      (function(e,entryId){
-        if(!e.location||!e.hornets)return;
-        var hp=L.latLng(e.location.lat,e.location.lng);
-        var hpi=L.divIcon({html:'📍',iconSize:[20,20],iconAnchor:[10,10],className:''});
-        var hpm=L.marker([e.location.lat,e.location.lng],{icon:hpi,opacity:0.9});
-        hpm.bindPopup('<b>'+t('hist_pot')+'</b><br>📅 '+new Date(e.date).toLocaleDateString());
-        hpm.on('click',function(){toggleHistoricalFlights(entryId);});
-        hpm.addTo(window.historicalLayer);
-
-        if(historicalVisibility[entryId]){
-          for(var hi=0;hi<e.hornets.length;hi++){
-            var hh=e.hornets[hi];
-            if(!hh.flights||!hh.flights.length)continue;
-            var avg=0;
-            for(var fi=0;fi<hh.flights.length;fi++)avg+=hh.flights[fi];
-            avg=avg/hh.flights.length;
-            var dm=(avg-30)*2.5;
-            if(dm>0){
-              var c2=hh.color||'#999';
-              var dr=(hh.direction*Math.PI)/180;
-              var nh=L.latLng(e.location.lat+(dm/111320)*Math.cos(dr),e.location.lng+(dm/(111320*Math.cos(e.location.lat*Math.PI/180)))*Math.sin(dr));
-              L.polyline([hp,nh],{color:c2,weight:2,dashArray:'3,7',opacity:0.7}).addTo(window.historicalLayer);
-              L.polygon(createOval(nh,hh.direction),{color:c2,fillOpacity:0.08,weight:1,dashArray:'3,5',opacity:0.6}).addTo(window.historicalLayer);
-              var histMarker=L.circleMarker(nh,{radius:5,color:c2,fillOpacity:0.6,weight:2});
-              histMarker.bindPopup('<b>Hist: '+hh.name+'</b><br>📅 '+new Date(e.date).toLocaleDateString());
-              histMarker.addTo(window.historicalLayer);
-            }
+      var e=histData[ei];
+      if(!e.location||!e.hornets)continue;
+      var hp=L.latLng(e.location.lat,e.location.lng);
+      var hpi=L.divIcon({html:'📍',iconSize:[20,20],iconAnchor:[10,10],className:''});
+      var hpm=L.marker([e.location.lat,e.location.lng],{icon:hpi,opacity:0.7}).addTo(map);
+      hpm.bindPopup('<b>'+t('hist_pot')+'</b><br>📅 '+new Date(e.date).toLocaleDateString());
+      hpm.on('click',function(){toggleHistoricalFlights(e.date);});
+      mapLines.push(hpm);
+      if(historicalVisibility[e.date]){
+        for(var hi=0;hi<e.hornets.length;hi++){
+          var hh=e.hornets[hi];
+          if(!hh.flights||!hh.flights.length)continue;
+          var avg=0;
+          for(var fi=0;fi<hh.flights.length;fi++)avg+=hh.flights[fi];
+          avg=avg/hh.flights.length;
+          var dm=(avg-30)*2.5;
+          if(dm>0){
+            var c2=hh.color||'#999';
+            var dr=(hh.direction*Math.PI)/180;
+            var nh=L.latLng(e.location.lat+(dm/111320)*Math.cos(dr),e.location.lng+(dm/(111320*Math.cos(e.location.lat*Math.PI/180)))*Math.sin(dr));
+            mapLines.push(L.polyline([hp,nh],{color:c2,weight:2,dashArray:'3,7',opacity:0.6}).addTo(map));
+            mapLines.push(L.polygon(createOval(nh,hh.direction),{color:c2,fillOpacity:0.08,weight:1,dashArray:'3,5',opacity:0.5}).addTo(map));
+            var hm=L.circleMarker(nh,{radius:4,color:c2,fillOpacity:0.5,weight:1}).addTo(map);
+            hm.bindPopup('<b>Hist: '+hh.name+'</b><br>📅 '+new Date(e.date).toLocaleDateString());
+            mapLines.push(hm);
           }
         }
-      })(histData[ei],ei);
+      }
     }
   }
-
-  if(window.historicalLayer)window.historicalLayer.bringToFront();
-
-  document.getElementById('predictionPanel').innerHTML=preds.length
-    ?'🔍 '+preds.map(function(p){return p.name+' → ~'+p.dist.toFixed(0)+'m'}).join(' · ')
-    :'⚠️ '+t('no_flights');
+  document.getElementById('predictionPanel').innerHTML=preds.length?'🔍 '+preds.map(function(p){return p.name+' → ~'+p.dist.toFixed(0)+'m'}).join(' · '):'⚠️ '+t('no_flights');
 }
 
 function showHistory(){var hist=getHist();var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;var recent=hist.filter(function(e){return new Date(e.date)>new Date(cutoff);});drawAnalysis(recent);var panel=document.getElementById('historyPanel');panel.style.display='block';panel.innerHTML='<div style="font-size:0.8rem;color:#c47b6b;margin-bottom:8px;">'+t('history_limit')+' ('+recent.length+'/'+MAX_HISTORY+')</div>';if(recent.length){var html='';var startIdx=hist.length-recent.length;for(var i=recent.length-1;i>=0;i--){var e=recent[i];var actualIndex=startIdx+i;html+='<div class="history-item"><strong>📅 '+new Date(e.date).toLocaleDateString()+'</strong><br>🐝 '+(e.hornets?e.hornets.length:0)+' frelons | '+(e.hornets?e.hornets.map(function(h){return h.name}).join(', '):'?')+'<br>📍 '+(e.location&&e.location.name?e.location.name:'?')+'<div class="history-actions"><button class="btn-gold btn-sm" onclick="resumeHistEntryByIndex('+actualIndex+')">🔄 '+t('hist_resume')+'</button><button class="btn-red btn-sm" onclick="deleteHistEntry('+actualIndex+')">🗑️ '+t('hist_delete')+'</button></div></div>';}panel.innerHTML+=html;}else{panel.innerHTML+='<div class="history-item">📭 '+t('history_empty')+'</div>';}}

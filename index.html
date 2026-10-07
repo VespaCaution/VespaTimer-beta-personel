@@ -400,26 +400,29 @@ function initMap(){
       return lat>=45.8 && lat<=47.8 && lng>=5.9 && lng<=10.5;
     }
     
-    function updateBaseLayer(){
-      var zoom=map.getZoom();
-      var center=map.getCenter();
-      var inCH=isInSwitzerland(center.lat,center.lng);
-      var useSwisstopo=inCH && zoom>=14 && !swisstopoDisabled;
-      
-      var targetLayer=useSwisstopo?swisstopoLayer:osmLayer;
-      
-      if(currentLayer!==targetLayer){
-        if(currentLayer)map.removeLayer(currentLayer);
-        currentLayer=targetLayer;
-        currentLayer.addTo(map);
-        // Force immediate tile load to avoid blank screen
-        setTimeout(function(){if(currentLayer)currentLayer.redraw();},50);
-      }
+     var switchTimer=null;
+function updateBaseLayer(){
+  clearTimeout(switchTimer);
+  switchTimer=setTimeout(function(){
+    var zoom=map.getZoom();
+    var center=map.getCenter();
+    var inCH=isInSwitzerland(center.lat,center.lng);
+    var useSwisstopo=inCH && zoom>=14 && !swisstopoDisabled;
+    
+    var targetLayer=useSwisstopo?swisstopoLayer:osmLayer;
+    
+    if(currentLayer!==targetLayer){
+      if(currentLayer)map.removeLayer(currentLayer);
+      currentLayer=targetLayer;
+      currentLayer.addTo(map);
+      setTimeout(function(){if(currentLayer)currentLayer.redraw();},50);
     }
-    
-    updateBaseLayer();
-    map.on('zoomend moveend',updateBaseLayer);
-    
+  },150);
+}
+
+updateBaseLayer();
+map.on('zoomend',updateBaseLayer);
+map.on('moveend',updateBaseLayer);   
     updatePotMarker();
     setTimeout(function(){if(map)map.invalidateSize();},400);
     

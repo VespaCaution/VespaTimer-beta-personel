@@ -374,7 +374,7 @@ function initMap(){
     
     function trackSwisstopoRequest(){
       requestCount++;
-      if(requestCount>=20){
+      if(requestCount>=900){
         swisstopoDisabled=true;
         if(currentLayer===swisstopoLayer){
           map.removeLayer(swisstopoLayer);

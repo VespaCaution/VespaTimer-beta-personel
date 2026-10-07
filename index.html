@@ -561,71 +561,81 @@ function downloadFile(b,n){var a=document.createElement('a');a.href=URL.createOb
 function exportJSON(){closeModal('exportModal');var data={version:'2.0',hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo};dl(new Blob([JSON.stringify(data)],{type:'application/json'}),'vespatimer.json');}
 function exportPDF(){
   closeModal('exportModal');
-  if(map){
-    // Force OpenStreetMap for PDF (Swisstopo min zoom = 14, might be blank)
-    var osmForPdf=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'© OpenStreetMap',
-      maxZoom:19,
-      minZoom:0,
-      keepBuffer:4,
-      updateWhenIdle:false
-    });
-    
-    // Remove any current base layer temporarily
-    var layersToRestore=[];
-    map.eachLayer(function(layer){
-      if(layer instanceof L.TileLayer && layer.options.attribution && layer.options.attribution.indexOf('swisstopo')!==-1){
-        layersToRestore.push(layer);
-        map.removeLayer(layer);
-      }
-    });
-    osmForPdf.addTo(map);
-    
-    // Collect all points and fit bounds
-    var allPoints=[L.latLng(surveyLocation.lat,surveyLocation.lng)];
-    for(var i=0;i<hornets.length;i++){
-      var h=hornets[i];
-      if(!h.flights.length)continue;
-      var n=getNestCoords(h);
-      if(n)allPoints.push(L.latLng(n.lat,n.lng));
-    }
-    
-    if(allPoints.length>1){
-      var bounds=L.latLngBounds(allPoints);
-      var spanLat=bounds.getNorth()-bounds.getSouth();
-      var spanLng=bounds.getEast()-bounds.getWest();
-      var padLat=Math.max(spanLat*0.2,300/111320);
-      var padLng=Math.max(spanLng*0.2,300/111320);
-      var paddedBounds=L.latLngBounds(
-        L.latLng(bounds.getSouth()-padLat,bounds.getWest()-padLng),
-        L.latLng(bounds.getNorth()+padLat,bounds.getEast()+padLng)
-      );
-      map.fitBounds(paddedBounds,{maxZoom:17});
-    }else{
-      map.setView([surveyLocation.lat,surveyLocation.lng],15);
-    }
-    
-    // Wait for OSM tiles to load, then print
-    setTimeout(function(){
-      window.print();
-      sendNotification(t('export_success'),'vespatimer.pdf');
-      
-      // Restore Swisstopo after print (if it was active)
-      setTimeout(function(){
-        if(osmForPdf)map.removeLayer(osmForPdf);
-        layersToRestore.forEach(function(layer){
-          layer.addTo(map);
-        });
-        // Trigger base layer check to restore normal state
-        setTimeout(function(){map.fireEvent('moveend');},100);
-      },2000);
-    },900);
-  }else{
-    setTimeout(function(){
-      window.print();
-      sendNotification(t('export_success'),'vespatimer.pdf');
-    },400);
+  if(!map){
+    setTimeout(function(){window.print();},400);
+    sendNotification(t('export_success'),'vespatimer.pdf');
+    return;
   }
+  
+  // Force OSM for PDF
+  var osmForPdf=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© OpenStreetMap',
+    maxZoom:19,
+    minZoom:0,
+    keepBuffer:4,
+    updateWhenIdle:false
+  });
+  
+  var layersToRestore=[];
+  map.eachLayer(function(layer){
+    if(layer instanceof L.TileLayer && layer.options.attribution && layer.options.attribution.indexOf('swisstopo')!==-1){
+      layersToRestore.push(layer);
+      map.removeLayer(layer);
+    }
+  });
+  osmForPdf.addTo(map);
+  
+  // Step 1: Calculate max distance from pot to any nest
+  var maxDistance=0;
+  for(var i=0;i<hornets.length;i++){
+    var h=hornets[i];
+    if(!h.flights.length)continue;
+    var n=getNestCoords(h);
+    if(!n)continue;
+    var d=map.distance([surveyLocation.lat,surveyLocation.lng],[n.lat,n.lng]);
+    // Add oval radius (200m/2 = 100m + safety)
+    d+=150;
+    if(d>maxDistance)maxDistance=d;
+  }
+  
+  // Step 2: Determine zoom level so maxDistance fits in map viewport
+  var mapHeight=map.getSize().y;
+  var mapWidth=map.getSize().x;
+  // Use smaller dimension minus margins
+  var usablePixels=Math.min(mapHeight,mapWidth)-80;
+  
+  var targetZoom=17;
+  if(maxDistance>0){
+    for(var z=17;z>=1;z--){
+      // meters per pixel at this zoom level
+      var metersPerPixel=40075016.686*Math.cos(surveyLocation.lat*Math.PI/180)/Math.pow(2,z+8);
+      // radius in pixels (need maxDistance radius to fit)
+      var radiusPixels=maxDistance/metersPerPixel;
+      // radius must fit in usablePixels/2
+      if(radiusPixels<=usablePixels/2){
+        targetZoom=z;
+        break;
+      }
+    }
+  }
+  
+  // Step 3: Center on pot with calculated zoom
+  map.setView([surveyLocation.lat,surveyLocation.lng],targetZoom,{animate:false});
+  
+  // Step 4: Wait, then print
+  setTimeout(function(){
+    window.print();
+    sendNotification(t('export_success'),'vespatimer.pdf');
+    
+    // Restore Swisstopo after print
+    setTimeout(function(){
+      if(osmForPdf)map.removeLayer(osmForPdf);
+      layersToRestore.forEach(function(layer){
+        layer.addTo(map);
+      });
+      setTimeout(function(){map.fireEvent('moveend');},100);
+    },2000);
+  },900);
 }
 function exportGPX(){closeModal('exportModal');var g='<?xml version="1.0"?><gpx version="1.1"><wpt lat="'+surveyLocation.lat+'" lon="'+surveyLocation.lng+'"><name>Pot</name></wpt>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)g+='<wpt lat="'+n.lat.toFixed(6)+'" lon="'+n.lng.toFixed(6)+'"><name>'+h.name+'</name></wpt>';}g+='</gpx>';dl(new Blob([g],{type:'application/gpx+xml'}),'vespatimer.gpx');}
 function exportKML(){closeModal('exportModal');var k='<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>Pot</name><Point><coordinates>'+surveyLocation.lng+','+surveyLocation.lat+',0</coordinates></Point></Placemark>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)k+='<Placemark><name>'+h.name+'</name><Point><coordinates>'+n.lng.toFixed(6)+','+n.lat.toFixed(6)+',0</coordinates></Point></Placemark>';}k+='</Document></kml>';dl(new Blob([k],{type:'application/vnd.google-earth.kml+xml'}),'vespatimer.kml');}

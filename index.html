@@ -353,13 +353,18 @@ function initMap(){
     var osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       attribution:'© OpenStreetMap',
       maxZoom:19,
-      minZoom:0
+      minZoom:0,
+      keepBuffer:4,
+      updateWhenIdle:false
     });
     
     var swisstopoLayer=L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',{
       attribution:'© swisstopo',
       maxZoom:19,
-      minZoom:14
+      minZoom:14,
+      maxNativeZoom:19,
+      keepBuffer:4,
+      updateWhenIdle:false
     });
     
     var currentLayer=null;
@@ -369,12 +374,13 @@ function initMap(){
     
     function trackSwisstopoRequest(){
       requestCount++;
-      if(requestCount>=900){
+      if(requestCount>=20){
         swisstopoDisabled=true;
         if(currentLayer===swisstopoLayer){
           map.removeLayer(swisstopoLayer);
           currentLayer=osmLayer;
           currentLayer.addTo(map);
+          currentLayer.redraw();
         }
       }
       if(!requestResetTimer){
@@ -406,6 +412,8 @@ function initMap(){
         if(currentLayer)map.removeLayer(currentLayer);
         currentLayer=targetLayer;
         currentLayer.addTo(map);
+        // Force immediate tile load to avoid blank screen
+        setTimeout(function(){if(currentLayer)currentLayer.redraw();},50);
       }
     }
     
@@ -415,6 +423,7 @@ function initMap(){
     updatePotMarker();
     setTimeout(function(){if(map)map.invalidateSize();},400);
     
+    // Long press to move pot (unchanged)
     var pressTimer=null;
     var startX=0;
     var startY=0;
@@ -467,7 +476,7 @@ function initMap(){
     mapContainer.addEventListener('mouseup',endPress);
     mapContainer.addEventListener('mouseleave',endPress);
   }catch(e){console.error('Map init failed:',e);}
-      }
+            }
 
 function updatePotMarker(){
   if(!map)return;

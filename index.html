@@ -349,36 +349,87 @@ function initMap(){
   if(map){map.invalidateSize();return;}
   try{
     map=L.map('map',{zoomControl:true}).setView([surveyLocation.lat,surveyLocation.lng],16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+    
+    var osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      attribution:'© OpenStreetMap',
+      maxZoom:19,
+      minZoom:0
+    });
+    
+    var swisstopoLayer=L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',{
+      attribution:'© swisstopo',
+      maxZoom:19,
+      minZoom:14
+    });
+    
+    var currentLayer=null;
+    var requestCount=0;
+    var requestResetTimer=null;
+    var swisstopoDisabled=false;
+    
+    function trackSwisstopoRequest(){
+      requestCount++;
+      if(requestCount>=900){
+        swisstopoDisabled=true;
+        if(currentLayer===swisstopoLayer){
+          map.removeLayer(swisstopoLayer);
+          currentLayer=osmLayer;
+          currentLayer.addTo(map);
+        }
+      }
+      if(!requestResetTimer){
+        requestResetTimer=setTimeout(function(){
+          requestCount=0;
+          swisstopoDisabled=false;
+          requestResetTimer=null;
+          updateBaseLayer();
+        },60000);
+      }
+    }
+    
+    swisstopoLayer.on('tileload',trackSwisstopoRequest);
+    swisstopoLayer.on('tileerror',trackSwisstopoRequest);
+    
+    function isInSwitzerland(lat,lng){
+      return lat>=45.8 && lat<=47.8 && lng>=5.9 && lng<=10.5;
+    }
+    
+    function updateBaseLayer(){
+      var zoom=map.getZoom();
+      var center=map.getCenter();
+      var inCH=isInSwitzerland(center.lat,center.lng);
+      var useSwisstopo=inCH && zoom>=14 && !swisstopoDisabled;
+      
+      var targetLayer=useSwisstopo?swisstopoLayer:osmLayer;
+      
+      if(currentLayer!==targetLayer){
+        if(currentLayer)map.removeLayer(currentLayer);
+        currentLayer=targetLayer;
+        currentLayer.addTo(map);
+      }
+    }
+    
+    updateBaseLayer();
+    map.on('zoomend moveend',updateBaseLayer);
+    
     updatePotMarker();
     setTimeout(function(){if(map)map.invalidateSize();},400);
-
+    
     var pressTimer=null;
     var startX=0;
     var startY=0;
     var moved=false;
-
-    function clearPress(){
-      if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}
-    }
-
+    function clearPress(){if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}}
     function getLatLng(clientX,clientY){
       var rect=map.getContainer().getBoundingClientRect();
       var point=L.point(clientX-rect.left,clientY-rect.top);
       return map.containerPointToLatLng(point);
     }
-
     function startPress(e){
       var clientX=0,clientY=0;
-      if(e.touches&&e.touches[0]){
-        clientX=e.touches[0].clientX;
-        clientY=e.touches[0].clientY;
-      }else if(e.clientX!==undefined){
-        clientX=e.clientX;
-        clientY=e.clientY;
-      }else{
-        return;
-      }
+      if(e.touches&&e.touches[0]){clientX=e.touches[0].clientX;clientY=e.touches[0].clientY;}
+      else if(e.clientX!==undefined){clientX=e.clientX;clientY=e.clientY;}
+      else{return;}
       startX=clientX;
       startY=clientY;
       moved=false;
@@ -398,29 +449,14 @@ function initMap(){
         pressTimer=null;
       },800);
     }
-
     function movePress(e){
       if(!pressTimer)return;
       var clientX=0,clientY=0;
-      if(e.touches&&e.touches[0]){
-        clientX=e.touches[0].clientX;
-        clientY=e.touches[0].clientY;
-      }else if(e.clientX!==undefined){
-        clientX=e.clientX;
-        clientY=e.clientY;
-      }
-      var dx=Math.abs(clientX-startX);
-      var dy=Math.abs(clientY-startY);
-      if(dx>10||dy>10){
-        moved=true;
-        clearPress();
-      }
+      if(e.touches&&e.touches[0]){clientX=e.touches[0].clientX;clientY=e.touches[0].clientY;}
+      else if(e.clientX!==undefined){clientX=e.clientX;clientY=e.clientY;}
+      if(Math.abs(clientX-startX)>10||Math.abs(clientY-startY)>10){moved=true;clearPress();}
     }
-
-    function endPress(){
-      clearPress();
-    }
-
+    function endPress(){clearPress();}
     var mapContainer=map.getContainer();
     mapContainer.addEventListener('touchstart',startPress,{passive:true});
     mapContainer.addEventListener('touchmove',movePress,{passive:true});
@@ -430,9 +466,8 @@ function initMap(){
     mapContainer.addEventListener('mousemove',movePress);
     mapContainer.addEventListener('mouseup',endPress);
     mapContainer.addEventListener('mouseleave',endPress);
-
   }catch(e){console.error('Map init failed:',e);}
-}
+      }
 
 function updatePotMarker(){
   if(!map)return;

@@ -46,10 +46,10 @@
         <p id="betaShutdownMessage" style="font-size:1rem;line-height:1.8;color:var(--text);margin-bottom:30px;white-space:pre-line;text-align:left;"></p>
         <div style="display:flex;flex-direction:column;gap:12px;max-width:400px;margin:0 auto;">
             <button class="btn-gold" onclick="exportShutdownJSON()" style="padding:14px;font-size:1rem;">📤 Exporter les données (JSON)</button>
-            <button class="btn-gold" onclick="exportShutdownPDF()" style="padding:14px;font-size:1rem;">📄 Exporter en PDF</button>
             <button class="btn-default" onclick="exportShutdownHistory()" style="padding:14px;font-size:1rem;">📋 Exporter l'historique</button>
         </div>
-        <p style="font-size:0.75rem;color:#888;margin-top:30px;">VespaTimer v2.0 — BÊTA 2026</p>
+        <p id="dataStatus" style="font-size:0.8rem;color:#888;margin-top:20px;"></p>
+        <p style="font-size:0.75rem;color:#888;margin-top:10px;">VespaTimer v2.0 — BÊTA 2026</p>
     </div>
 </div>
 
@@ -63,16 +63,15 @@
 
 <script>
 var translations={
-fr:{beta_shutdown_message:'Bonjour,\n\nJe vous remercie d\'avoir utilisé la version BÊTA saison 2026. Son service a pris fin, mais vous pouvez encore exporter vos données pour les importer dans la nouvelle version en ligne à :\nvespacaution.github.io/VespaTimer/\nJusqu\'au 31.10.2026, et continuer vos recherches.\n\nMerci encore de votre soutien et à l\'année prochaine pour la version BÊTA 2027.\n\nBonne fin de saison et de chasse,\n\nBen'},
-en:{beta_shutdown_message:'Hello,\n\nThank you for using the VespaTimer 2026 BETA. Its service has ended, but you can still export your data to import it into the new online version at:\nvespacaution.github.io/VespaTimer/\nUntil 31.10.2026, and continue your research.\n\nThank you again for your support, and see you next year for the 2027 BETA.\n\nHave a great end of season and happy hunting,\n\nBen'},
-de:{beta_shutdown_message:'Hallo,\n\nVielen Dank für die Nutzung der VespaTimer BETA 2026. Der Dienst wurde beendet, aber Sie können Ihre Daten weiterhin exportieren, um sie in die neue Online-Version unter:\nvespacaution.github.io/VespaTimer/\nBis zum 31.10.2026 zu importieren und Ihre Recherchen fortzusetzen.\n\nVielen Dank für Ihre Unterstützung und bis nächstes Jahr zur BETA 2027.\n\nEin schönes Saisonende und gute Jagd,\n\nBen'},
-it:{beta_shutdown_message:'Ciao,\n\nGrazie per aver utilizzato la versione BETA 2026 di VespaTimer. Il servizio è terminato, ma puoi ancora esportare i tuoi dati per importarli nella nuova versione online su:\nvespacaution.github.io/VespaTimer/\nFino al 31.10.2026, e continuare le tue ricerche.\n\nGrazie ancora per il tuo supporto e ci vediamo l\'anno prossimo per la BETA 2027.\n\nBuona fine stagione e buona caccia,\n\nBen'},
-rm:{beta_shutdown_message:'Bun di,\n\nGrazie per avair duvrà la versiun BETA 2026 da VespaTimer. Ses servetsch è vegnì terminà, ma ti pos anc exportar tias datas per las importar en la nova versiun online sin:\nvespacaution.github.io/VespaTimer/\nFin ils 31.10.2026, e cuntinuar tias retschertgas.\n\nGrazie anc ina giada per tia purschida e fin l\'onn proxim per la BETA 2027.\n\nBuna fin da sesida e buna chatscha,\n\nBen'}
+fr:{beta_shutdown_message:'Bonjour,\n\nJe vous remercie d\'avoir utilisé la version BÊTA saison 2026. Son service a pris fin, mais vous pouvez encore exporter vos données pour les importer dans la nouvelle version en ligne à :\nvespacaution.github.io/VespaTimer/\nJusqu\'au 31.10.2026, et continuer vos recherches.\n\nMerci encore de votre soutien et à l\'année prochaine pour la version BÊTA 2027.\n\nBonne fin de saison et de chasse,\n\nBen',data_status:'{n} frelon(s) et {h} entrée(s) d\'historique chargés',no_data:'Aucune donnée trouvée dans ce navigateur'},
+en:{beta_shutdown_message:'Hello,\n\nThank you for using the VespaTimer 2026 BETA. Its service has ended, but you can still export your data to import it into the new online version at:\nvespacaution.github.io/VespaTimer/\nUntil 31.10.2026, and continue your research.\n\nThank you again for your support, and see you next year for the 2027 BETA.\n\nHave a great end of season and happy hunting,\n\nBen',data_status:'{n} hornet(s) and {h} history entry(ies) loaded',no_data:'No data found in this browser'},
+de:{beta_shutdown_message:'Hallo,\n\nVielen Dank für die Nutzung der VespaTimer BETA 2026. Der Dienst wurde beendet, aber Sie können Ihre Daten weiterhin exportieren, um sie in die neue Online-Version unter:\nvespacaution.github.io/VespaTimer/\nBis zum 31.10.2026 zu importieren und Ihre Recherchen fortzusetzen.\n\nVielen Dank für Ihre Unterstützung und bis nächstes Jahr zur BETA 2027.\n\nEin schönes Saisonende und gute Jagd,\n\nBen',data_status:'{n} Hornisse(n) und {h} Verlaufseintrag/Einträge geladen',no_data:'Keine Daten in diesem Browser gefunden'},
+it:{beta_shutdown_message:'Ciao,\n\nGrazie per aver utilizzato la versione BETA 2026 di VespaTimer. Il servizio è terminato, ma puoi ancora esportare i tuoi dati per importarli nella nuova versione online su:\nvespacaution.github.io/VespaTimer/\nFino al 31.10.2026, e continuare le tue ricerche.\n\nGrazie ancora per il tuo supporto e ci vediamo l\'anno prossimo per la BETA 2027.\n\nBuona fine stagione e buona caccia,\n\nBen',data_status:'{n} calabrone/i e {h} voce/i di cronologia caricati',no_data:'Nessun dato trovato in questo browser'},
+rm:{beta_shutdown_message:'Bun di,\n\nGrazie per avair duvrà la versiun BETA 2026 da VespaTimer. Ses servetsch è vegnì terminà, ma ti pos anc exportar tias datas per las importar en la nova versiun online sin:\nvespacaution.github.io/VespaTimer/\nFin ils 31.10.2026, e cuntinuar tias retschertgas.\n\nGrazie anc ina giada per tia purschida e fin l\'onn proxim per la BETA 2027.\n\nBuna fin da sesida e buna chatscha,\n\nBen',data_status:'{n} vespra(s) e {h} endataziun(s) da cronologia chargiads',no_data:'Naginas datas chattadas en quest navigatur'}
 };
 
 var currentLang='fr';
 var hornets=[],surveyLocation={lat:46.8,lng:6.8,name:''},inspectorName='',notes='',personalInfo={firstName:'',lastName:'',phone:''};
-var map=null,potMarker=null;
 
 function t(key){return(translations[currentLang]&&translations[currentLang][key])||key;}
 
@@ -82,15 +81,19 @@ function closeCustomAlert(){document.getElementById('customAlertOverlay').style.
 
 function loadAll(){
   try{
-    var d=JSON.parse(localStorage.getItem('vd_v2'));
-    if(d){
-      if(d.hornets)hornets=d.hornets;
-      if(d.surveyLocation)surveyLocation=d.surveyLocation;
-      inspectorName=d.inspectorName||'';
-      notes=d.notes||'';
-      if(d.personalInfo)personalInfo=d.personalInfo;
+    var raw=localStorage.getItem('vd_v2');
+    if(raw){
+      var d=JSON.parse(raw);
+      if(d){
+        if(d.hornets)hornets=d.hornets;
+        if(d.surveyLocation)surveyLocation=d.surveyLocation;
+        inspectorName=d.inspectorName||'';
+        notes=d.notes||'';
+        if(d.personalInfo)personalInfo=d.personalInfo;
+      }
     }
-  }catch(e){}
+  }catch(e){console.error('loadAll vd_v2:',e);}
+  
   var sl=localStorage.getItem('vl_v2');
   if(sl&&translations[sl])currentLang=sl;
 }
@@ -123,11 +126,19 @@ function sharedExport(blob,filename,type){
 }
 
 function exportShutdownJSON(){
-  var data={version:'2.0',hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo};
-  var blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+  var data={
+    version:'2.0',
+    exportDate:new Date().toISOString(),
+    hornets:hornets||[],
+    surveyLocation:surveyLocation||{lat:46.8,lng:6.8,name:''},
+    inspectorName:inspectorName||'',
+    notes:notes||'',
+    personalInfo:personalInfo||{firstName:'',lastName:'',phone:''}
+  };
+  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   var filename='vespatimer_beta2026_'+new Date().toISOString().slice(0,10)+'.json';
   sharedExport(blob,filename,'application/json');
-  showToast('✅ '+filename);
+  showToast('✅ '+filename+' ('+hornets.length+' frelons)');
 }
 
 function exportShutdownHistory(){
@@ -135,132 +146,29 @@ function exportShutdownHistory(){
   var blob=new Blob([JSON.stringify(hist,null,2)],{type:'application/json'});
   var filename='vespatimer_beta2026_history_'+new Date().toISOString().slice(0,10)+'.json';
   sharedExport(blob,filename,'application/json');
-  showToast('✅ '+filename);
-}
-
-function exportShutdownPDF(){
-  var hornetsWithFlights=hornets.filter(function(h){return h.flights&&h.flights.length>0;});
-  if(!hornetsWithFlights.length){
-    showAlert('Aucun vol enregistré pour un PDF','📄');
-    return;
-  }
-  showToast('⏳ Génération du PDF...');
-  
-  var jsPDFConstructor=window.jspdf?window.jspdf.jsPDF:window.jsPDF;
-  if(!jsPDFConstructor||!window.html2canvas){
-    showAlert('Bibliothèque PDF non disponible','❌');
-    return;
-  }
-  
-  var pdf=new jsPDFConstructor('p','mm','a4');
-  var pdfWidth=pdf.internal.pageSize.getWidth();
-  var pdfHeight=pdf.internal.pageSize.getHeight();
-  var yPos=15;
-  var margin=15;
-  var lineHeight=6;
-  
-  pdf.setFontSize(18);
-  pdf.setTextColor(212,168,83);
-  pdf.text('VespaTimer BETA 2026',pdfWidth/2,yPos,{align:'center'});
-  yPos+=10;
-  
-  pdf.setFontSize(10);
-  pdf.setTextColor(100);
-  pdf.text('Export du '+new Date().toLocaleString(),pdfWidth/2,yPos,{align:'center'});
-  yPos+=12;
-  
-  pdf.setDrawColor(212,168,83);
-  pdf.line(margin,yPos,pdfWidth-margin,yPos);
-  yPos+=8;
-  
-  pdf.setFontSize(12);
-  pdf.setTextColor(59,46,30);
-  pdf.text('Pot-à-Mèche',margin,yPos);
-  yPos+=6;
-  pdf.setFontSize(10);
-  pdf.text('Lieu: '+(surveyLocation.name||'Non défini'),margin,yPos);yPos+=5;
-  pdf.text('Coordonnées: '+surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5),margin,yPos);yPos+=5;
-  pdf.text('Inspecteur: '+(inspectorName||'Non défini'),margin,yPos);yPos+=5;
-  if(personalInfo.firstName||personalInfo.lastName){
-    pdf.text('Utilisateur: '+personalInfo.firstName+' '+personalInfo.lastName,margin,yPos);yPos+=5;
-  }
-  if(notes){
-    var noteLines=pdf.splitTextToSize('Notes: '+notes,pdfWidth-2*margin);
-    pdf.text(noteLines,margin,yPos);
-    yPos+=noteLines.length*lineHeight;
-  }
-  yPos+=5;
-  
-  pdf.setDrawColor(212,168,83);
-  pdf.line(margin,yPos,pdfWidth-margin,yPos);
-  yPos+=8;
-  
-  pdf.setFontSize(12);
-  pdf.text('Frelons',margin,yPos);
-  yPos+=7;
-  
-  for(var i=0;i<hornetsWithFlights.length;i++){
-    var h=hornetsWithFlights[i];
-    if(yPos>pdfHeight-40){
-      pdf.addPage();
-      yPos=15;
-    }
-    
-    var avg=0;
-    for(var fi=0;fi<h.flights.length;fi++)avg+=h.flights[fi];
-    avg=avg/h.flights.length;
-    var dist=avg<=30?0:(avg-30)*2.5;
-    
-    pdf.setFontSize(11);
-    pdf.setTextColor(59,46,30);
-    pdf.text((i+1)+'. '+h.name,margin,yPos);
-    yPos+=5;
-    
-    pdf.setFontSize(9);
-    pdf.setTextColor(80);
-    var flightsStr=h.flights.map(function(f){return f+'s';}).join(', ');
-    pdf.text('Vols: '+flightsStr,margin+3,yPos);yPos+=4;
-    pdf.text('Moyenne: '+avg.toFixed(1)+'s | Distance: '+dist.toFixed(0)+'m | Direction: '+h.direction+'°',margin+3,yPos);yPos+=4;
-    
-    var dRad=(h.direction*Math.PI)/180;
-    var nestLat=surveyLocation.lat+(dist/111320)*Math.cos(dRad);
-    var nestLng=surveyLocation.lng+(dist/(111320*Math.cos(surveyLocation.lat*Math.PI/180)))*Math.sin(dRad);
-    if(dist>0){
-      pdf.text('Nid estimé: '+nestLat.toFixed(5)+', '+nestLng.toFixed(5),margin+3,yPos);yPos+=4;
-    }
-    yPos+=4;
-  }
-  
-  yPos+=5;
-  if(yPos>pdfHeight-30){
-    pdf.addPage();
-    yPos=15;
-  }
-  pdf.setFontSize(12);
-  pdf.setTextColor(59,46,30);
-  pdf.text('Statistiques',margin,yPos);
-  yPos+=6;
-  pdf.setFontSize(10);
-  for(var si=0;si<hornetsWithFlights.length;si++){
-    var sh=hornetsWithFlights[si];
-    var savg=0;
-    for(var sf=0;sf<sh.flights.length;sf++)savg+=sh.flights[sf];
-    savg=savg/sh.flights.length;
-    pdf.text('• '+sh.name+': '+savg.toFixed(1)+'s',margin+3,yPos);
-    yPos+=5;
-  }
-  
-  var pdfBlob=pdf.output('blob');
-  var filename='vespatimer_beta2026_'+new Date().toISOString().slice(0,10)+'.pdf';
-  sharedExport(pdfBlob,filename,'application/pdf');
-  showToast('✅ '+filename);
+  showToast('✅ '+filename+' ('+hist.length+' entrées)');
 }
 
 function checkBetaShutdown(){
   document.getElementById('betaShutdownMessage').textContent=t('beta_shutdown_message');
 }
 
+function updateDataStatus(){
+  var hist=getHist();
+  var statusEl=document.getElementById('dataStatus');
+  if(!hornets.length&&!hist.length){
+    statusEl.textContent=t('no_data');
+    statusEl.style.color='#c47b6b';
+  }else{
+    statusEl.textContent=t('data_status').replace('{n}',hornets.length).replace('{h}',hist.length);
+    statusEl.style.color='#5f7d6b';
+  }
+}
+
+// Init
+loadAll();
 checkBetaShutdown();
+updateDataStatus();
 </script>
 </body>
 </html>

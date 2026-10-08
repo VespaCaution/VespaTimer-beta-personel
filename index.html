@@ -26,8 +26,6 @@
         body { background:var(--bg); font-family:Arial,sans-serif; color:var(--text); min-height:100vh; }
         .btn-gold { background:var(--gold); color:white; border:none; border-radius:25px; font-weight:600; cursor:pointer; transition:transform 0.15s; }
         .btn-gold:active { transform:scale(0.97); }
-        .btn-default { background:#e8e0d0; color:var(--text); border:none; border-radius:25px; font-weight:600; cursor:pointer; transition:transform 0.15s; }
-        .btn-default:active { transform:scale(0.97); }
         .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#333; color:white; padding:12px 20px; border-radius:25px; z-index:10003; font-size:0.9rem; box-shadow:0 2px 10px rgba(0,0,0,0.3); animation:fadeInOut 3s ease-in-out; }
         @keyframes fadeInOut { 0% { opacity:0; transform:translateX(-50%) translateY(-20px); } 10% { opacity:1; transform:translateX(-50%) translateY(0); } 90% { opacity:1; transform:translateX(-50%) translateY(0); } 100% { opacity:0; transform:translateX(-50%) translateY(-20px); } }
         .custom-alert-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10002; justify-content:center; align-items:center; }
@@ -35,6 +33,8 @@
         .custom-alert-icon { font-size:3rem; margin-bottom:12px; }
         .custom-alert-message { font-size:1rem; margin-bottom:20px; line-height:1.5; }
         .custom-alert-button { background:var(--gold); color:white; border:none; border-radius:25px; padding:12px 30px; font-size:1rem; font-weight:600; cursor:pointer; min-width:120px; }
+        #betaShutdownMessage a { color:#0d6b35; text-decoration:underline; font-weight:600; word-break:break-all; }
+        #betaShutdownMessage a:hover { color:#0a4d26; }
     </style>
 </head>
 <body>
@@ -43,10 +43,11 @@
     <div style="max-width:600px;width:100%;background:var(--card);border-radius:20px;padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.1);text-align:center;">
         <div style="font-size:4rem;margin-bottom:20px;">🐝</div>
         <h1 style="color:var(--gold);margin-bottom:20px;font-size:1.6rem;">VespaTimer BÊTA 2026</h1>
-        <p id="betaShutdownMessage" style="font-size:1rem;line-height:1.8;color:var(--text);margin-bottom:30px;white-space:pre-line;text-align:left;"></p>
+        <p id="betaShutdownMessage" style="font-size:1rem;line-height:1.8;color:var(--text);margin-bottom:30px;text-align:left;"></p>
         <div style="display:flex;flex-direction:column;gap:12px;max-width:400px;margin:0 auto;">
             <button class="btn-gold" onclick="exportShutdownJSON()" style="padding:14px;font-size:1rem;">📤 Exporter les données (JSON)</button>
-            <button class="btn-default" onclick="exportShutdownHistory()" style="padding:14px;font-size:1rem;">📋 Exporter l'historique</button>
+            <button class="btn-gold" onclick="exportShutdownHistory()" style="padding:14px;font-size:1rem;">📋 Exporter l'historique</button>
+            <button onclick="window.open('https://forms.gle/6jGyy4zmjSTtkz2B9','_blank')" style="padding:14px;font-size:1rem;background:#e8e0d0;color:var(--text);border:none;border-radius:25px;font-weight:600;cursor:pointer;">📧 Contact</button>
         </div>
         <p id="dataStatus" style="font-size:0.8rem;color:#888;margin-top:20px;"></p>
         <p style="font-size:0.75rem;color:#888;margin-top:10px;">VespaTimer v2.0 — BÊTA 2026</p>
@@ -63,11 +64,11 @@
 
 <script>
 var translations={
-fr:{beta_shutdown_message:'Bonjour,\n\nJe vous remercie d\'avoir utilisé la version BÊTA saison 2026. Son service a pris fin, mais vous pouvez encore exporter vos données pour les importer dans la nouvelle version en ligne à :\nvespacaution.github.io/VespaTimer/\nJusqu\'au 31.10.2026, et continuer vos recherches.\n\nMerci encore de votre soutien et à l\'année prochaine pour la version BÊTA 2027.\n\nBonne fin de saison et de chasse,\n\nBen',data_status:'{n} frelon(s) et {h} entrée(s) d\'historique chargés',no_data:'Aucune donnée trouvée dans ce navigateur'},
-en:{beta_shutdown_message:'Hello,\n\nThank you for using the VespaTimer 2026 BETA. Its service has ended, but you can still export your data to import it into the new online version at:\nvespacaution.github.io/VespaTimer/\nUntil 31.10.2026, and continue your research.\n\nThank you again for your support, and see you next year for the 2027 BETA.\n\nHave a great end of season and happy hunting,\n\nBen',data_status:'{n} hornet(s) and {h} history entry(ies) loaded',no_data:'No data found in this browser'},
-de:{beta_shutdown_message:'Hallo,\n\nVielen Dank für die Nutzung der VespaTimer BETA 2026. Der Dienst wurde beendet, aber Sie können Ihre Daten weiterhin exportieren, um sie in die neue Online-Version unter:\nvespacaution.github.io/VespaTimer/\nBis zum 31.10.2026 zu importieren und Ihre Recherchen fortzusetzen.\n\nVielen Dank für Ihre Unterstützung und bis nächstes Jahr zur BETA 2027.\n\nEin schönes Saisonende und gute Jagd,\n\nBen',data_status:'{n} Hornisse(n) und {h} Verlaufseintrag/Einträge geladen',no_data:'Keine Daten in diesem Browser gefunden'},
-it:{beta_shutdown_message:'Ciao,\n\nGrazie per aver utilizzato la versione BETA 2026 di VespaTimer. Il servizio è terminato, ma puoi ancora esportare i tuoi dati per importarli nella nuova versione online su:\nvespacaution.github.io/VespaTimer/\nFino al 31.10.2026, e continuare le tue ricerche.\n\nGrazie ancora per il tuo supporto e ci vediamo l\'anno prossimo per la BETA 2027.\n\nBuona fine stagione e buona caccia,\n\nBen',data_status:'{n} calabrone/i e {h} voce/i di cronologia caricati',no_data:'Nessun dato trovato in questo browser'},
-rm:{beta_shutdown_message:'Bun di,\n\nGrazie per avair duvrà la versiun BETA 2026 da VespaTimer. Ses servetsch è vegnì terminà, ma ti pos anc exportar tias datas per las importar en la nova versiun online sin:\nvespacaution.github.io/VespaTimer/\nFin ils 31.10.2026, e cuntinuar tias retschertgas.\n\nGrazie anc ina giada per tia purschida e fin l\'onn proxim per la BETA 2027.\n\nBuna fin da sesida e buna chatscha,\n\nBen',data_status:'{n} vespra(s) e {h} endataziun(s) da cronologia chargiads',no_data:'Naginas datas chattadas en quest navigatur'}
+fr:{beta_shutdown_message:'Bonjour,\n\nJe vous remercie d\'avoir utilisé la version BÊTA saison 2026. Son service a pris fin, mais vous pouvez encore exporter vos données pour les importer dans la nouvelle version en ligne à :\n{link}\nJusqu\'au 31.10.2026, et continuer vos recherches.\n\nMerci encore de votre soutien et à l\'année prochaine pour la version BÊTA 2027.\n\nBonne fin de saison et de chasse,\n\nBen',data_status:'{n} frelon(s) et {h} entrée(s) d\'historique chargés',no_data:'Aucune donnée trouvée dans ce navigateur'},
+en:{beta_shutdown_message:'Hello,\n\nThank you for using the VespaTimer 2026 BETA. Its service has ended, but you can still export your data to import it into the new online version at:\n{link}\nUntil 31.10.2026, and continue your research.\n\nThank you again for your support, and see you next year for the 2027 BETA.\n\nHave a great end of season and happy hunting,\n\nBen',data_status:'{n} hornet(s) and {h} history entry(ies) loaded',no_data:'No data found in this browser'},
+de:{beta_shutdown_message:'Hallo,\n\nVielen Dank für die Nutzung der VespaTimer BETA 2026. Der Dienst wurde beendet, aber Sie können Ihre Daten weiterhin exportieren, um sie in die neue Online-Version unter:\n{link}\nBis zum 31.10.2026 zu importieren und Ihre Recherchen fortzusetzen.\n\nVielen Dank für Ihre Unterstützung und bis nächstes Jahr zur BETA 2027.\n\nEin schönes Saisonende und gute Jagd,\n\nBen',data_status:'{n} Hornisse(n) und {h} Verlaufseintrag/Einträge geladen',no_data:'Keine Daten in diesem Browser gefunden'},
+it:{beta_shutdown_message:'Ciao,\n\nGrazie per aver utilizzato la versione BETA 2026 di VespaTimer. Il servizio è terminato, ma puoi ancora esportare i tuoi dati per importarli nella nuova versione online su:\n{link}\nFino al 31.10.2026, e continuare le tue ricerche.\n\nGrazie ancora per il tuo supporto e ci vediamo l\'anno prossimo per la BETA 2027.\n\nBuona fine stagione e buona caccia,\n\nBen',data_status:'{n} calabrone/i e {h} voce/i di cronologia caricati',no_data:'Nessun dato trovato in questo browser'},
+rm:{beta_shutdown_message:'Bun di,\n\nGrazie per avair duvrà la versiun BETA 2026 da VespaTimer. Ses servetsch è vegnì terminà, ma ti pos anc exportar tias datas per las importar en la nova versiun online sin:\n{link}\nFin ils 31.10.2026, e cuntinuar tias retschertgas.\n\nGrazie anc ina giada per tia purschida e fin l\'onn proxim per la BETA 2027.\n\nBuna fin da sesida e buna chatscha,\n\nBen',data_status:'{n} vespra(s) e {h} endataziun(s) da cronologia chargiads',no_data:'Naginas datas chattadas en quest navigatur'}
 };
 
 var currentLang='fr';
@@ -150,7 +151,10 @@ function exportShutdownHistory(){
 }
 
 function checkBetaShutdown(){
-  document.getElementById('betaShutdownMessage').textContent=t('beta_shutdown_message');
+  var msg=t('beta_shutdown_message');
+  var linkHtml='<a href="https://vespacaution.github.io/VespaTimer/" target="_blank">vespacaution.github.io/VespaTimer/</a>';
+  msg=msg.replace('{link}',linkHtml);
+  document.getElementById('betaShutdownMessage').innerHTML=msg.replace(/\n/g,'<br>');
 }
 
 function updateDataStatus(){

@@ -16,186 +16,42 @@
     <meta property="og:description" content="Assistant digital pour relevés Pot-à-Mèche et triangulation de nids de frelons asiatiques">
     <meta property="og:type" content="website">
     <meta property="og:image" content="icon.png">
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="VespaTimer">
-    <meta name="twitter:description" content="Assistant digital pour relevés Pot-à-Mèche et triangulation de nids de frelons asiatiques">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
     <title>VespaTimer</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root { --bg: #f5f2e6; --card: #ffffff; --text: #3b2e1e; --gold: #d4a853; --danger: #c47b6b; --border: #e7d7b8; }
+        :root { --bg: #f5f2e6; --card: #ffffff; --text: #3b2e1e; --gold: #d4a853; --danger: #c47b6b; }
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { background:var(--bg); font-family:Arial,sans-serif; padding:8px; color:var(--text); max-width:750px; margin:0 auto; padding-bottom:80px; }
-        .header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px; background:var(--card); padding:12px 16px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
-        .header h1 { font-size:1.4rem; }
-        .header h1 a { text-decoration:none; color:var(--text); }
-        .card { background:var(--card); border-radius:20px; padding:16px; margin-bottom:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
-        h2 { font-size:1.2rem; margin-bottom:10px; }
-        button { padding:10px 16px; border-radius:25px; border:none; font-weight:600; cursor:pointer; font-size:0.85rem; margin:2px; background:#e8e0d0; color:var(--text); }
-        button:active { transform:scale(0.95); }
-        button:disabled { opacity:0.35; cursor:not-allowed; }
-        .btn-gold { background:var(--gold); color:white; }
-        .btn-red { background:var(--danger); color:white; }
-        .btn-sm { padding:6px 12px; font-size:0.78rem; }
-        input, textarea { font-size:16px; padding:10px; border-radius:14px; border:2px solid #e0d5c0; width:100%; background:#fefdf9; margin:4px 0; }
-        textarea { resize:none; -webkit-appearance:none; }
-        .hornet-card { background:#fefaf2; border-radius:16px; margin-bottom:10px; overflow:hidden; display:flex; padding:0; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
-        .hornet-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
-        .hornet-name-input { border:none!important; background:transparent!important; font-weight:700; font-size:1.05rem!important; width:130px!important; padding:2px!important; }
-        .dir-input { width:70px!important; text-align:center; display:inline-block; }
-        .timer-display { font-size:1.5rem; font-weight:700; background:#f0ede5; padding:6px 16px; border-radius:30px; display:inline-block; min-width:100px; text-align:center; }
-        .timer-display.running { background:var(--danger); color:white; }
-        .badge { display:inline-block; padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:700; color:white; }
-        .collapse-icon { font-size:1.2rem; transition:transform 0.3s; display:inline-block; }
-        .collapse-icon.open { transform:rotate(90deg); }
-        .hornet-body { max-height:600px; opacity:1; overflow:hidden; transition:max-height 0.3s,opacity 0.3s; }
-        .hornet-body.collapsed { max-height:0; opacity:0; }
-        .collapsed-info { display:none; align-items:center; gap:12px; flex-wrap:wrap; }
-        .hornet-card.collapsed-card .collapsed-info { display:flex; }
-        .hornet-card.collapsed-card .hornet-body { max-height:0; opacity:0; }
-        .flight-item { display:inline-flex; align-items:center; gap:4px; background:#e8e0d0; padding:3px 10px; border-radius:15px; margin:2px; font-size:0.85rem; }
-        .flight-delete-btn { background:none; border:none; color:#c47b6b; cursor:pointer; font-size:0.9rem; padding:0 2px; }
-        #map { height:350px; width:100%; border-radius:16px; background:#e8e0d0; }
-        .banner-live { background:var(--danger); color:white; padding:10px 16px; border-radius:20px; display:none; margin-top:8px; font-weight:bold; text-align:center; }
-        .flex-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-        .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-        @media (max-width:400px) { .grid-2{grid-template-columns:1fr} }
-        #historyPanel { max-height:250px; overflow-y:auto; display:none; margin-top:10px; background:#f9f4e8; border-radius:14px; padding:8px; }
-        .history-item { background:white; padding:10px; border-radius:10px; margin:6px 0; font-size:0.85rem; border-left:4px solid var(--gold); }
-        .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; justify-content:center; align-items:center; }
-        .modal { background:white; border-radius:20px; padding:20px; max-width:550px; width:90%; max-height:80vh; overflow-y:auto; position:relative; }
-        .modal-close { position:absolute; top:10px; right:14px; font-size:1.5rem; cursor:pointer; background:none; border:none; z-index:10001; }
-        .delete-hornet-btn { background:none; border:none; color:#c47b6b; cursor:pointer; font-size:1.2rem; padding:2px 6px; opacity:0.6; }
-        .bottom-bar { position:fixed; bottom:0; left:0; right:0; background:white; padding:10px 8px; box-shadow:0 -2px 10px rgba(0,0,0,0.15); z-index:9999; display:flex; justify-content:space-around; gap:4px; }
-        .compass-btn { background:#f0ede5; border:2px solid var(--gold); border-radius:50%; width:44px; height:44px; font-size:1.3rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-        .history-actions { display:flex; gap:4px; margin-top:6px; }
-        .color-dot { width:35px; height:35px; border-radius:50%; cursor:pointer; border:3px solid #fff; transition:transform 0.2s; }
-        .color-dot:hover { transform:scale(1.2); }
-        .color-dot.selected { border-color:#000; }
-        .header a:active { transform:scale(0.9); opacity:0.7; }
-        button,a,[onclick] { -webkit-tap-highlight-color:transparent; }
-        .custom-alert-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10002; justify-content:center; align-items:center; }
-        .custom-alert { background:white; border-radius:20px; padding:24px; max-width:400px; width:90%; text-align:center; box-shadow:0 4px 20px rgba(0,0,0,0.3); animation:slideIn 0.3s ease-out; }
-        .custom-alert-icon { font-size:3rem; margin-bottom:12px; }
-        .custom-alert-message { font-size:1rem; margin-bottom:20px; line-height:1.5; color:var(--text); }
-        .custom-alert-button { background:var(--gold); color:white; border:none; border-radius:25px; padding:12px 30px; font-size:1rem; font-weight:600; cursor:pointer; min-width:120px; }
-        @keyframes slideIn { from { transform:translateY(-20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-        #undoDelete { position:fixed; bottom:70px; left:50%; transform:translateX(-50%); z-index:10001; box-shadow:0 2px 10px rgba(0,0,0,0.3); animation:slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { transform:translateX(-50%) translateY(20px); opacity:0; } to { transform:translateX(-50%) translateY(0); opacity:1; } }
+        body { background:var(--bg); font-family:Arial,sans-serif; color:var(--text); min-height:100vh; }
+        .btn-gold { background:var(--gold); color:white; border:none; border-radius:25px; font-weight:600; cursor:pointer; transition:transform 0.15s; }
+        .btn-gold:active { transform:scale(0.97); }
+        .btn-default { background:#e8e0d0; color:var(--text); border:none; border-radius:25px; font-weight:600; cursor:pointer; transition:transform 0.15s; }
+        .btn-default:active { transform:scale(0.97); }
         .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#333; color:white; padding:12px 20px; border-radius:25px; z-index:10003; font-size:0.9rem; box-shadow:0 2px 10px rgba(0,0,0,0.3); animation:fadeInOut 3s ease-in-out; }
         @keyframes fadeInOut { 0% { opacity:0; transform:translateX(-50%) translateY(-20px); } 10% { opacity:1; transform:translateX(-50%) translateY(0); } 90% { opacity:1; transform:translateX(-50%) translateY(0); } 100% { opacity:0; transform:translateX(-50%) translateY(-20px); } }
-        #updateBanner { position:fixed; bottom:70px; left:50%; transform:translateX(-50%); background:#333; color:white; padding:12px 20px; border-radius:25px; z-index:10005; display:none; gap:10px; align-items:center; box-shadow:0 2px 10px rgba(0,0,0,0.3); animation:slideUp 0.3s ease-out; font-size:0.9rem; }
-        html, body { overscroll-behavior-y: contain; overscroll-behavior-x: contain; }
-        body { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
-        input, textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
-        ::-webkit-scrollbar { display: none; }
-        @supports (-webkit-touch-callout: none) { body { -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; } input, textarea { -webkit-user-select: text; -webkit-touch-callout: default; } }
-        .coord-input-group { margin:10px 0; text-align:left; }
-        .coord-input-group label { display:block; margin-bottom:4px; font-weight:600; font-size:0.9rem; }
-        .coord-input-group input { width:100%; text-align:center; }
-        .lang-option { display:flex; align-items:center; gap:10px; padding:12px; border-radius:12px; cursor:pointer; margin:4px 0; background:#f9f4e8; border:2px solid transparent; }
-        .lang-option:active { transform:scale(0.98); border-color:var(--gold); }
-        .lang-option.selected { border-color:var(--gold); background:#fefaf2; }
-        .lang-flag { font-size:1.5rem; }
-        .lang-name { font-weight:600; }
-        @media print {
-            .bottom-bar, .header, button, .compass-btn, .delete-hornet-btn, .flight-delete-btn, #updateBanner, .modal-overlay, .custom-alert-overlay, #undoDelete, .toast, .banner-live { display:none !important; }
-            body { padding:10px; max-width:100%; background:white; font-size:12px; }
-            .card { box-shadow:none; border:1px solid #ddd; margin-bottom:6px; break-inside:avoid; page-break-inside:avoid; padding:10px; }
-            .hornet-card { break-inside:avoid; page-break-inside:avoid; border:1px solid #ddd; margin-bottom:5px; }
-            .hornet-body { max-height:none !important; opacity:1 !important; }
-            .hornet-body.collapsed { max-height:none !important; opacity:1 !important; }
-            #map { height:250px !important; break-inside:avoid; page-break-inside:avoid; }
-            .dir-input { border:1px solid #ccc !important; }
-            .timer-display { font-size:1rem; padding:3px 8px; min-width:60px; }
-            h2 { font-size:1rem; margin-bottom:5px; }
-            .badge { font-size:0.65rem; padding:2px 8px; }
-            .flight-item { font-size:0.75rem; padding:2px 6px; }
-            hr { margin:6px 0 !important; }
-        }
+        .custom-alert-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10002; justify-content:center; align-items:center; }
+        .custom-alert { background:white; border-radius:20px; padding:24px; max-width:400px; width:90%; text-align:center; box-shadow:0 4px 20px rgba(0,0,0,0.3); }
+        .custom-alert-icon { font-size:3rem; margin-bottom:12px; }
+        .custom-alert-message { font-size:1rem; margin-bottom:20px; line-height:1.5; }
+        .custom-alert-button { background:var(--gold); color:white; border:none; border-radius:25px; padding:12px 30px; font-size:1rem; font-weight:600; cursor:pointer; min-width:120px; }
     </style>
 </head>
 <body>
 
-<div class="header" style="justify-content:space-between;align-items:center;">
-    <h1><a href="https://VespaTimer.my.canva.site" target="_blank">🐝 VespaTimer</a> <span style="font-size:0.8rem;color:#888;">v2.0</span></h1>
-    <div class="flex-row" style="gap:12px;">
-        <a href="https://youtube.com/@hornetjunkie" target="_blank" style="text-decoration:none;color:#FF0000;font-size:1.6rem;padding:4px;" title="YouTube"><i class="fab fa-youtube"></i></a>
-        <a href="https://whatsapp.com/channel/0029VbDichqDuMRfA1Yitr2b" target="_blank" style="text-decoration:none;color:#25D366;font-size:1.6rem;padding:4px;" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+<div id="betaShutdownScreen" style="min-height:100vh;padding:20px;display:flex;align-items:center;justify-content:center;">
+    <div style="max-width:600px;width:100%;background:var(--card);border-radius:20px;padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.1);text-align:center;">
+        <div style="font-size:4rem;margin-bottom:20px;">🐝</div>
+        <h1 style="color:var(--gold);margin-bottom:20px;font-size:1.6rem;">VespaTimer BÊTA 2026</h1>
+        <p id="betaShutdownMessage" style="font-size:1rem;line-height:1.8;color:var(--text);margin-bottom:30px;white-space:pre-line;text-align:left;"></p>
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:400px;margin:0 auto;">
+            <button class="btn-gold" onclick="exportShutdownJSON()" style="padding:14px;font-size:1rem;">📤 Exporter les données (JSON)</button>
+            <button class="btn-gold" onclick="exportShutdownPDF()" style="padding:14px;font-size:1rem;">📄 Exporter en PDF</button>
+            <button class="btn-default" onclick="exportShutdownHistory()" style="padding:14px;font-size:1rem;">📋 Exporter l'historique</button>
+        </div>
+        <p style="font-size:0.75rem;color:#888;margin-top:30px;">VespaTimer v2.0 — BÊTA 2026</p>
     </div>
 </div>
-
-<div class="card">
-    <h2>👤 <span data-lang="personal_info">Infos personnelles</span></h2>
-    <div class="grid-2">
-        <input type="text" id="firstName" data-lang-placeholder="first_name_placeholder" placeholder="Prénom" oninput="personalInfo.firstName=this.value;debouncedSave()">
-        <input type="text" id="lastName" data-lang-placeholder="last_name_placeholder" placeholder="Nom" oninput="personalInfo.lastName=this.value;debouncedSave()">
-    </div>
-    <input type="tel" id="phone" data-lang-placeholder="phone_placeholder" placeholder="📞 Téléphone" oninput="personalInfo.phone=this.value;debouncedSave()" style="margin-top:6px;">
-    <div style="margin-top:6px;">🕐 <span id="datetime"></span></div>
-    <hr style="border:1px dashed #e0cfaa;margin:12px 0;">
-    <h2>📍 <span data-lang="pot_label">Pot-à-Mèche</span></h2>
-    <div class="flex-row">
-        <input type="text" id="locationInput" data-lang-placeholder="location_placeholder" placeholder="Nom du lieu ou lat,lng" oninput="surveyLocation.name=this.value;debouncedSave()" style="flex:1;">
-        <button class="btn-gold" onclick="setLocation()">💾 <span data-lang="save_btn">Enregistrer</span></button>
-    </div>
-    <div style="margin-top:4px;"><span id="locationDisplay"></span></div>
-    <input type="text" id="inspectorInput" data-lang-placeholder="inspector_placeholder" placeholder="👤 Inspecteur (télémètre)" oninput="inspectorName=this.value;debouncedSave()" style="margin-top:6px;">
-    <textarea id="notesField" data-lang-placeholder="notes_placeholder" placeholder="📝 Notes de relevé..." oninput="notes=this.value;debouncedSave()" style="margin-top:6px;min-height:50px;resize:none;"></textarea>
-    <div class="banner-live" id="liveBanner">⏱️ <span data-lang="timer_active">Chronomètre actif</span></div>
-</div>
-
-<div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <h2 style="margin-bottom:0;">🐝 <span data-lang="hornets_title">Frelons</span> <small>(max 13)</small></h2>
-        <button class="compass-btn" onclick="openCompassModal()" title="Boussole">🧭</button>
-    </div>
-    <div id="hornetContainer"></div>
-    <button onclick="addHornet()" style="margin-top:8px;">➕ <span data-lang="add_hornet">Ajouter un frelon</span></button>
-</div>
-
-<div class="card">
-    <h2>🗺️ <span data-lang="map_title">Triangulation</span></h2>
-    <div id="map"></div>
-    <div class="flex-row" style="margin-top:8px;">
-        <button class="btn-sm" onclick="getGPS()">📍 GPS</button>
-        <button class="btn-sm" onclick="manualCoords()">✍️ Coord.</button>
-        <button class="btn-gold btn-sm" onclick="showHistory()">📋 <span data-lang="history_btn">Historique 90j</span></button> 
-    </div>
-    <div id="predictionPanel" style="margin-top:8px;padding:8px;background:#f9f4e8;border-radius:12px;font-size:0.85rem;">⚠️ <span data-lang="no_flights">Ajoutez des vols pour voir les estimations</span></div>
-    <div id="historyPanel"></div>
-</div>
-
-<div class="card"><h2>📊 <span data-lang="stats_title">Statistiques</span></h2><div id="statsContent" style="font-size:0.9rem;"></div></div>
-
-<div class="bottom-bar" id="bottomBar">
-    <button class="btn-sm" onclick="openModal('exportModal')">📤 <span data-lang="export_import">Export/Import</span></button>
-    <button class="btn-sm" onclick="openModal('optionsModal')">⚙️ <span data-lang="options">Options</span></button>
-</div>
-
-<div id="updateBanner"></div>
-<div class="modal-overlay" id="optionsModal"><div class="modal" style="max-width:550px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h2 style="margin:0;">⚙️ <span data-lang="options">Options</span></h2><button class="modal-close" onclick="closeModal('optionsModal')" style="position:static;">✕</button></div><div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;"><p><strong data-lang="language">Langue:</strong> <button class="btn-gold btn-sm" onclick="openLangModal()">🌍 <span data-lang="language">Langue</span></button></p><button onclick="toggleNotifications()">🔔 <span id="notifBtnLabel">Notifications</span></button><button onclick="closeModal('optionsModal');openModal('newsModal')">📰 <span data-lang="news">Nouveautés</span></button><button onclick="closeModal('optionsModal');openModal('aboutModal')">ℹ️ <span data-lang="about_btn">À propos</span></button><button onclick="window.open('https://forms.gle/6jGyy4zmjSTtkz2B9','_blank')">📧 <span data-lang="contact">Contact</span></button><button class="btn-gold" id="installBtn2" style="display:none;" onclick="installPWA()">📲 <span data-lang="install_app">Installer l'app</span></button></div></div></div>
-
-<div class="modal-overlay" id="newsModal"><div class="modal" style="max-width:550px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h2 style="margin:0;">📰 <span data-lang="news">Nouveautés</span></h2><button class="modal-close" onclick="closeModal('newsModal');openModal('optionsModal')" style="position:static;">✕</button></div><div style="font-size:0.9rem;line-height:1.7;margin-top:10px;"><p data-lang="news_text">Bienvenue sur la version 2.0 de VespaTimer !</p></div></div></div>
-
-<div class="modal-overlay" id="exportModal"><div class="modal" style="max-width:550px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h2 style="margin:0;">📤 <span data-lang="export_import">Export / Import</span></h2><button class="modal-close" onclick="closeModal('exportModal')" style="position:static;">✕</button></div><div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;"><button onclick="exportPDF()">📄 PDF</button><button onclick="exportHistory()">📋 <span data-lang="export_history">Exporter historique</span></button><button onclick="exportJSON()">📤 JSON</button><button onclick="exportGPX()">📍 GPX</button><button onclick="exportKML()">🌍 KML</button><hr><button class="btn-gold" onclick="document.getElementById('importFile').click()">📥 <span data-lang="import_btn">Importer</span> (JSON)</button><button class="btn-gold" onclick="document.getElementById('importHistFile').click()">📋 <span data-lang="import_history">Importer historique</span></button><button class="btn-gold" onclick="openVespafinderModal()">🔗 <span data-lang="import_vespafinder">Importer Vespafinder</span></button><input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)"><input type="file" id="importHistFile" accept=".json" style="display:none;" onchange="importHistory(event)"><hr><button class="btn-red" onclick="resetAll()">🔄 <span data-lang="reset_btn">Nouveau / Sauvegarder</span></button></div></div></div>
-
-<div class="modal-overlay" id="aboutModal"><div class="modal" style="max-width:550px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h2 style="margin:0;">ℹ️ <span data-lang="about_title_full">À propos de VespaTimer</span></h2><button class="modal-close" onclick="closeAbout()" style="position:static;">✕</button></div><div style="font-size:0.9rem;line-height:1.7;margin-top:10px;"><p data-lang="about_text">Bienvenue sur VespaTimer</p><p>⚠️ <span data-lang="about_report">N'oubliez pas de signaler vos observations sur :</span> <a href="https://frelonasiatique.ch" target="_blank">frelonasiatique.ch</a></p><p data-lang="about_instructions_detail">Instructions</p><hr style="border:1px dashed #e0cfaa;margin:10px 0;"><details><summary style="cursor:pointer;font-weight:600;color:#d4a853;">🧭 <span data-lang="compass_calibration_title">Calibration de la boussole</span></summary><p style="margin-top:8px;"><strong data-lang="compass_calibration_when">QUAND :</strong><br><span data-lang="compass_calibration_when_text"></span></p><p style="margin-top:8px;"><strong data-lang="compass_calibration_how">COMMENT :</strong><br><span data-lang="compass_calibration_how_text"></span></p></details><details><summary style="cursor:pointer;font-weight:600;color:#d4a853;">🎨 <span data-lang="color_change_title">Changer la couleur d'un frelon</span></summary><p style="margin-top:8px;"><strong data-lang="color_change_method">Méthode :</strong><br><span data-lang="color_change_method_text"></span></p><p style="margin-top:8px;"><strong data-lang="color_change_tip">Astuce :</strong><br><span data-lang="color_change_tip_text"></span></p></details><details><summary style="cursor:pointer;font-weight:600;color:#d4a853;">📄 <span data-lang="format_explanation_title">Formats d'export</span></summary><p style="margin-top:8px;"><span data-lang="format_explanation_text"></span></p></details><details><summary style="cursor:pointer;font-weight:600;color:#d4a853;">📥 <span data-lang="import_explanation_title">Formats d'import</span></summary><p style="margin-top:8px;"><span data-lang="import_explanation_text"></span></p></details><hr style="border:1px dashed #e0cfaa;margin:10px 0;"><p data-lang="about_happy">🐝 Bonne chasse ! 🙂</p><p style="font-size:0.78rem;color:#888;margin-top:10px;"><span data-lang="about_footer1">Requiert une connexion Internet</span><br><span data-lang="about_footer2">Trouvez de plus amples informations sur : <a href="https://stopfrelons.ch" target="_blank">stopfrelons.ch</a></span></p></div></div></div>
-
-<div class="modal-overlay" id="compassModal"><div class="modal" style="text-align:center;background:#1a1a2e;color:white;border-radius:20px;width:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:20px;"><button class="modal-close" onclick="closeModal('compassModal');stopCompass()" style="color:white;position:absolute;top:10px;right:14px;z-index:10;">✕</button><h3 style="color:#d4a853;margin-bottom:10px;">🧭 Boussole</h3><div id="compassContainer" style="position:relative;width:300px;height:300px;"><svg viewBox="0 0 300 300" style="width:100%;height:100%;position:absolute;top:0;left:0;"><circle cx="150" cy="150" r="145" fill="#1a1a2e" stroke="#d4a853" stroke-width="3"/><circle cx="150" cy="150" r="125" fill="none" stroke="rgba(255,255,255,0.1)"/><circle cx="150" cy="150" r="105" fill="none" stroke="rgba(255,255,255,0.05)"/><g id="compassGraduations"></g><text x="150" y="22" fill="white" font-size="18" text-anchor="middle" font-weight="bold">N</text><text x="150" y="288" fill="white" font-size="14" text-anchor="middle">S</text><text x="278" y="155" fill="white" font-size="14" text-anchor="middle">E</text><text x="22" y="155" fill="white" font-size="14" text-anchor="middle">O</text></svg><div id="compassNeedle" style="position:absolute;top:5px;left:50%;width:4px;height:140px;margin-left:-2px;transform-origin:bottom center;transition:transform 0.3s;z-index:5;"><div style="width:4px;height:70px;background:linear-gradient(to top,#c47b6b,#d4a853);border-radius:2px 2px 0 0;"></div><div style="width:4px;height:70px;background:linear-gradient(to bottom,#666,#333);border-radius:0 0 2px 2px;"></div></div><div style="position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px;background:#d4a853;border-radius:50%;border:3px solid white;z-index:10;"></div></div><div id="compassDirection" style="margin-top:15px;font-size:1.5rem;font-weight:bold;color:#d4a853;">--°</div></div></div>
-
-<div class="modal-overlay" id="colorPickerModal"><div class="modal" style="max-width:350px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h3 style="margin:0;">🎨 <span data-lang="choose_color">Choisir une couleur</span></h3><button class="modal-close" onclick="closeModal('colorPickerModal')" style="position:static;">✕</button></div><div id="colorPickerContent" style="margin-top:10px;"></div></div></div>
-
-<div class="modal-overlay" id="langModal"><div class="modal" style="max-width:350px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h3 style="margin:0;">🌍 <span data-lang="language">Langue</span></h3><button class="modal-close" onclick="closeModal('langModal')" style="position:static;">✕</button></div><div id="langOptions" style="margin-top:10px;"></div></div></div>
-
-<div class="modal-overlay" id="coordModal"><div class="modal" style="max-width:350px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h3 style="margin:0;">✍️ <span data-lang="manual_coords">Coordonnées</span></h3><button class="modal-close" onclick="closeModal('coordModal')" style="position:static;">✕</button></div><div style="margin-top:10px;"><div class="coord-input-group"><label>Latitude</label><input type="number" id="coordLatInput" step="any" value="46.80000"></div><div class="coord-input-group"><label>Longitude</label><input type="number" id="coordLngInput" step="any" value="6.80000"></div><button class="btn-gold" onclick="saveManualCoords()" style="width:100%;margin-top:10px;">💾 <span data-lang="save_btn">Enregistrer</span></button></div></div></div>
-
-<div class="modal-overlay" id="vespafinderModal"><div class="modal" style="max-width:500px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h3 style="margin:0;">🔗 <span data-lang="import_vespafinder">Importer Vespafinder</span></h3><button class="modal-close" onclick="closeModal('vespafinderModal')" style="position:static;">✕</button></div><div style="margin-top:10px;"><p style="font-size:0.85rem;margin-bottom:8px;" data-lang="vespafinder_instructions">Collez le lien Vespafinder ci-dessous :</p><textarea id="vespafinderUrl" placeholder="https://vf.iotrobor.nl/prediction?id=..." style="width:100%;min-height:80px;font-size:0.8rem;"></textarea><div class="flex-row" style="margin-top:10px;"><button class="btn-red btn-sm" onclick="closeModal('vespafinderModal')" data-lang="cancel_btn">Annuler</button><button class="btn-gold btn-sm" onclick="importFromVespafinder()" data-lang="import_btn">Importer</button></div></div></div></div>
 
 <div class="custom-alert-overlay" id="customAlertOverlay">
     <div class="custom-alert">
@@ -205,743 +61,206 @@
     </div>
 </div>
 
-<div class="custom-alert-overlay" id="confirmAlertOverlay">
-    <div class="custom-alert">
-        <div class="custom-alert-icon" id="confirmAlertIcon">⚠️</div>
-        <div class="custom-alert-message" id="confirmAlertMessage"></div>
-        <div id="confirmAlertButtons" style="display:flex;gap:10px;justify-content:center;">
-            <button class="custom-alert-button" onclick="closeConfirmAlert(false)" style="background:#888;" data-lang="cancel_btn">Annuler</button>
-            <button class="custom-alert-button" onclick="closeConfirmAlert(true)" data-lang="confirm_btn">Confirmer</button>
-        </div>
-    </div>
-</div>
-
 <script>
-var hornets=[],surveyLocation={lat:46.8,lng:6.8,name:''},inspectorName='',notes='',personalInfo={firstName:'',lastName:'',phone:''},currentLang='fr',map=null,potMarker=null,mapLines=[],collapsedCards={},compassActive=false,compassSensor=null;
-var COLORS=['#1a1a1a','#e63946','#2a9d8f','#457b9d','#9b5de5','#ff6b6b','#118ab2','#ef476f','#06a77d','#5e60ce','#e76f51','#2b9348','#ffb703','#219ebc','#d62828','#f77f00','#06d6a0','#f4a261','#48bfe3','#8ac926'];
-var MAX_HORNETS=13,MAX_HISTORY=200,HISTORY_DAYS=90,resumedFromIndex=-1,historicalVisibility={},debounceTimer=null,lastDeleted=null,undoTimer=null,confirmCallback=null,notificationsEnabled=false;
-var ENABLE_IOS_BACKUP_ALERT=false;
-var firstLaunchXToApp=false;
 var translations={
-fr:{
-personal_info:'Infos personnelles',first_name_placeholder:'Prénom',last_name_placeholder:'Nom',phone_placeholder:'📞 Téléphone',pot_label:'Pot-à-Mèche',location_placeholder:'Nom du lieu ou lat,lng',save_btn:'Enregistrer',inspector_placeholder:'👤 Inspecteur (télémètre)',notes_placeholder:'📝 Notes de relevé...',timer_active:'Chronomètre actif',hornets_title:'Frelons',add_hornet:'Ajouter un frelon',map_title:'Triangulation',gps_btn:'GPS',manual_coords:'Coordonnées',history_btn:'Historique 90j',no_flights:'Ajoutez des vols pour voir les estimations',stats_title:'Statistiques',export_import:'Export/Import',news:'Nouveautés',options:'Options',about_btn:'À propos',install_app:'Installer l\'app',language:'Langue',contact:'Contact',export_history:'Exporter historique',import_btn:'Importer',import_history:'Importer historique',import_vespafinder:'Importer Vespafinder',reset_btn:'Nouveau / Sauvegarder',about_title_full:'À propos de VespaTimer',about_text:'Bienvenue sur VespaTimer, un site internet qui facilite le travail du pot à mèche, en faisant directement les moyennes et en triangulant le nid selon vos chronométrages.',about_report:'N\'oubliez pas de signaler vos observations (frelon, nid, etc.) sur :',about_happy:'Bonne chasse ! 🙂',about_footer1:'Requiert une connexion Internet et les services de localisation pour diverses fonctionnalités. Fait par Ben Hupka avec l\'aide de Deepseek.',about_footer2:'Trouvez de plus amples informations sur : <a href="https://stopfrelons.ch" target="_blank">stopfrelons.ch</a>',about_instructions_detail:'Instructions : remplissez les infos en haut, chronométrez les frelons plusieurs fois (minimum 30 secondes par vol), prenez la direction d\'envol avec la boussole, voyez où se trouve potentiellement le nid, exportez dans le format souhaité. Pour sauvegarder dans l\'historique, appuyez sur Nouveau / Sauvegarder.',no_flights_stats:'Aucun vol enregistré',ready:'Prêt',running:'En cours',flights_label:'vols',history_empty:'Aucun historique (90 jours)',history_limit:'⚠️ Max 200 entrées',import_success:'✅ Importé !',import_error:'❌ Fichier invalide',gps_error:'⚠️ GPS impossible',max_hornets:'Maximum 13 frelons',confirm_reset:'Sauvegarder le pot actuel et créer un nouveau ?',delete:'Supprimer',invalid_time:'Temps invalide',keep_one_hornet:'Gardez au moins un frelon.',pot_resumed:'✅ Pot-à-Mèche repris !',color_in_use:'Cette couleur est déjà utilisée par',manual_time:'Ou ajouter un temps (s)',add_manual:'Ajouter',manual_time_placeholder:'ex: 45',hist_pot:'Pot historique',flight_delete:'Supprimer ce vol',start_btn:'DÉMARRER',stop_btn:'ARRÊTER',reset_btn_label:'EFFACER',hist_delete:'Supprimer entrée',hist_resume:'Reprendre ce pot',pot_popup:'Pot-à-Mèche',oval_tooltip:'Ovale: 200m×100m',news_text:'Bienvenue sur la version 2.0 de VespaTimer ! Voici les dernières mises à jour : 13 frelons maximum avec couleurs personnalisables, historique par pot-à-mèche, bouton démarrer/arrêter combiné, boussole intégrée 360°, nettoyage auto après 90 jours, export/import d\'historique, reprise d\'un pot-à-mèche historique, nouvelle interface, romanche (Rumantsch Grischun), contact intégré, réseaux sociaux, import Vespafinder, mises à jour automatiques, format d\'export expliqué.',compass_calibration_title:'Calibration de la boussole',compass_calibration_when:'QUAND calibrer :',compass_calibration_how:'COMMENT calibrer :',compass_calibration_when_text:'• Si la boussole reste bloquée sur une valeur • Si elle oscille sans arrêt • Après avoir posé le téléphone près d\'un aimant ou d\'un objet métallique • Au début de chaque session de chasse',compass_calibration_how_text:'• Éloignez-vous des voitures, clôtures ou montres magnétiques • Retirez la coque du téléphone si elle a un aimant • Faites un grand mouvement en forme de 8 avec le téléphone • Répétez 2 à 3 fois jusqu\'à ce que la direction soit stable • Vérifiez en visant un point cardinal connu (ex: le soleil se lève à l\'Est)',color_change_title:'Changer la couleur d\'un frelon',color_change_method:'Méthode :',color_change_tip:'Astuce :',color_change_method_text:'• Appuyez longuement (1 seconde) sur la barre colorée à gauche de la carte du frelon • Une palette de 20 couleurs s\'ouvrira • Sélectionnez la couleur désirée • La couleur est unique pour chaque frelon',color_change_tip_text:'Utilisez des couleurs distinctes pour différencier facilement les frelons sur la carte de triangulation',format_explanation_title:'Formats d\'export',format_explanation_text:'PDF pour le télémètre / JSON pour réimporter les données plus tard, GPX/KML pour charger sur des cartes / Export historique pour changer de navigateur ou d\'appareil',import_explanation_title:'Formats d\'import',import_explanation_text:'JSON pour réimporter un pot-à-mèche complet / Historique pour restaurer l\'historique / Vespafinder pour importer les données depuis Vespafinder',entry_not_found:'Entrée non trouvée',invalid_coords:'Coordonnées invalides',new_pot_created:'✅ Pot sauvegardé et nouveau pot créé',undo_delete:'Annuler suppression',undo_success:'✅ Suppression annulée',notif_enabled:'✅ Notifications activées',notif_denied:'❌ Permission refusée',notif_disabled:'🔕 Notifications désactivées',lang_changed:'✅ Langue changée',pot_saved_notif:'💾 Pot-à-Mèche sauvegardé',no_name:'Sans nom',hornets:'frelons',history_expiry_title:'⚠️ Historique',history_expiry_text:'entrée(s) expire(nt) dans 24h',export_success:'📤 Export réussi',history_imported:'✅ Historique importé!',new_entries:'nouvelles entrées',choose_color:'Choisir une couleur',cancel_btn:'Annuler',confirm_btn:'Confirmer',update_available:'🔄 Mise à jour disponible',update_btn:'Actualiser',updating:'Mise à jour...',vespafinder_instructions:'Collez le lien Vespafinder ci-dessous :',vespafinder_invalid:'❌ Lien Vespafinder invalide',vespafinder_added:'✅ Vol ajouté à',vespafinder_created:'✅ Nouveau frelon créé',vespafinder_coords_mismatch:'Les coordonnées de ce lien ne correspondent pas au pot actuel. Que faire ?',vespafinder_dont_import:'Ne pas importer',vespafinder_replace:'Remplacer les coordonnées',vespafinder_new_pot:'Un nouveau pot sera créé. L\'ancien sera sauvegardé.',vespafinder_saved:'✅ Ancien pot sauvegardé',vespafinder_imported:'✅ Import Vespafinder réussi',compass_not_supported:'Non supporté',compass_not_allowed:'Non autorisé',pot_moved:'📍 Pot déplacé'
-},
-en:{
-personal_info:'Personal Info',first_name_placeholder:'First Name',last_name_placeholder:'Last Name',phone_placeholder:'📞 Phone',pot_label:'Pot-à-Mèche',location_placeholder:'Location or lat,lng',save_btn:'Save',inspector_placeholder:'👤 Inspector (telemeter)',notes_placeholder:'📝 Survey notes...',timer_active:'Timer active',hornets_title:'Hornets',add_hornet:'Add hornet',map_title:'Triangulation',gps_btn:'GPS',manual_coords:'Coordinates',history_btn:'History 90d',no_flights:'Add flights to see estimates',stats_title:'Statistics',export_import:'Export/Import',news:'News',options:'Options',about_btn:'About',install_app:'Install app',language:'Language',contact:'Contact',export_history:'Export history',import_btn:'Import',import_history:'Import history',import_vespafinder:'Import Vespafinder',reset_btn:'New / Save',about_title_full:'About VespaTimer',about_text:'Welcome to VespaTimer, a website that facilitates pot-à-mèche work by directly calculating averages and triangulating the nest based on your timings.',about_report:'Don\'t forget to report your observations (hornet, nest, etc.) on:',about_happy:'Happy hunting! 🙂',about_footer1:'Requires Internet connection and location services for various features. Made by Ben Hupka with the help of Deepseek.',about_footer2:'Find more information at: <a href="https://stopfrelons.ch" target="_blank">stopfrelons.ch</a>',about_instructions_detail:'Instructions: fill in the info at the top, time the hornets multiple times (minimum 30 seconds per flight), take the flight direction with the compass, see where there is potentially the nest, export in the preferred format. To save to history, press New / Save.',no_flights_stats:'No flights recorded',ready:'Ready',running:'Running',flights_label:'flights',history_empty:'No history (90 days)',history_limit:'⚠️ Max 200 entries',import_success:'✅ Imported!',import_error:'❌ Invalid file',gps_error:'⚠️ GPS unavailable',max_hornets:'Maximum 13 hornets',confirm_reset:'Save current pot and create a new one?',delete:'Delete',invalid_time:'Invalid time',keep_one_hornet:'Keep at least one hornet.',pot_resumed:'✅ Pot-à-Mèche resumed!',color_in_use:'This color is already used by',manual_time:'Or add time (s)',add_manual:'Add',manual_time_placeholder:'e.g. 45',hist_pot:'Historical pot',flight_delete:'Delete flight',start_btn:'START',stop_btn:'STOP',reset_btn_label:'RESET',hist_delete:'Delete entry',hist_resume:'Resume this pot',pot_popup:'Pot-à-Mèche',oval_tooltip:'Oval: 200m×100m',news_text:'Welcome to VespaTimer version 2.0! Here are the latest updates: 13 hornets max with customizable colors, history per pot-à-mèche, combined start/stop button, integrated 360° compass, auto-clean after 90 days, history export/import, resume historical pot, new interface, Romansh (Rumantsch Grischun), built-in contact, social media, Vespafinder import, automatic updates, export format explained.',compass_calibration_title:'Compass Calibration',compass_calibration_when:'WHEN to calibrate:',compass_calibration_how:'HOW to calibrate:',compass_calibration_when_text:'• If the compass is stuck on one value • If it keeps swinging • After placing the phone near a magnet or metal object • At the start of every hunting session',compass_calibration_how_text:'• Move away from cars, fences, or magnetic watches • Remove the phone case if it has a magnet • Make a big figure-8 motion with the phone • Repeat 2-3 times until the direction is stable • Check by aiming at a known cardinal point',color_change_title:'Changing a hornet\'s color',color_change_method:'Method:',color_change_tip:'Tip:',color_change_method_text:'• Long press (1 second) on the colored bar on the left of the hornet card • A palette of 20 colors will open • Select the desired color • The color is unique for each hornet',color_change_tip_text:'Use distinct colors to easily differentiate hornets on the triangulation map',format_explanation_title:'Export formats',format_explanation_text:'PDF for telemeter / JSON to reimport data later, GPX/KML to load on maps / Export history to change browser or device',import_explanation_title:'Import formats',import_explanation_text:'JSON to reimport a complete pot-à-mèche / History to restore the history / Vespafinder to import data from Vespafinder',entry_not_found:'Entry not found',invalid_coords:'Invalid coordinates',new_pot_created:'✅ Pot saved and new pot created',undo_delete:'Undo delete',undo_success:'✅ Deletion undone',notif_enabled:'✅ Notifications enabled',notif_denied:'❌ Permission denied',notif_disabled:'🔕 Notifications disabled',lang_changed:'✅ Language changed',pot_saved_notif:'💾 Pot-à-Mèche saved',no_name:'Unnamed',hornets:'hornets',history_expiry_title:'⚠️ History',history_expiry_text:'entry(ies) expiring in 24h',export_success:'📤 Export successful',history_imported:'✅ History imported!',new_entries:'new entries',choose_color:'Choose a color',cancel_btn:'Cancel',confirm_btn:'Confirm',update_available:'🔄 Update available',update_btn:'Refresh',updating:'Updating...',vespafinder_instructions:'Paste the Vespafinder link below:',vespafinder_invalid:'❌ Invalid Vespafinder link',vespafinder_added:'✅ Flight added to',vespafinder_created:'✅ New hornet created',vespafinder_coords_mismatch:'The coordinates of this link do not match the current pot. What to do?',vespafinder_dont_import:'Don\'t import',vespafinder_replace:'Replace coordinates',vespafinder_new_pot:'A new pot will be created. The current one will be saved.',vespafinder_saved:'✅ Previous pot saved',vespafinder_imported:'✅ Vespafinder import successful',compass_not_supported:'Not supported',compass_not_allowed:'Not allowed',pot_moved:'📍 Pot moved'
-},
-de:{
-personal_info:'Persönliche Daten',first_name_placeholder:'Vorname',last_name_placeholder:'Nachname',phone_placeholder:'📞 Telefon',pot_label:'Pot-à-Mèche',location_placeholder:'Ortsname oder lat,lng',save_btn:'Speichern',inspector_placeholder:'👤 Inspektor (Telemeter)',notes_placeholder:'📝 Notizen...',timer_active:'Timer aktiv',hornets_title:'Hornissen',add_hornet:'Hornisse hinzufügen',map_title:'Triangulation',gps_btn:'GPS',manual_coords:'Koordinaten',history_btn:'Verlauf 90T',no_flights:'Flüge hinzufügen um Schätzungen zu sehen',stats_title:'Statistiken',export_import:'Export/Import',news:'Neuigkeiten',options:'Optionen',about_btn:'Über',install_app:'App installieren',language:'Sprache',contact:'Kontakt',export_history:'Verlauf exportieren',import_btn:'Importieren',import_history:'Verlauf importieren',import_vespafinder:'Vespafinder importieren',reset_btn:'Neu / Speichern',about_title_full:'Über VespaTimer',about_text:'Willkommen bei VespaTimer, einer Website, die die Pot-à-Mèche-Arbeit erleichtert, indem sie Durchschnittswerte berechnet und das Nest anhand Ihrer Zeitmessungen trianguliert.',about_report:'Vergessen Sie nicht, Ihre Beobachtungen (Hornisse, Nest, etc.) zu melden auf:',about_happy:'Gute Jagd! 🙂',about_footer1:'Erfordert Internetverbindung und Standortdienste für verschiedene Funktionen. Gemacht von Ben Hupka mit Hilfe von Deepseek.',about_footer2:'Weitere Informationen finden Sie auf: <a href="https://stopfrelons.ch" target="_blank">stopfrelons.ch</a>',about_instructions_detail:'Anleitung: Füllen Sie die Infos oben aus, stoppen Sie die Hornissen mehrmals (mindestens 30 Sekunden pro Flug), nehmen Sie die Flugrichtung mit dem Kompass, sehen Sie, wo sich das Nest befinden könnte, exportieren Sie im gewünschten Format. Zum Speichern drücken Sie Neu / Speichern.',no_flights_stats:'Keine Flüge aufgezeichnet',ready:'Bereit',running:'Läuft',flights_label:'Flüge',history_empty:'Kein Verlauf (90 Tage)',history_limit:'⚠️ Max 200 Einträge',import_success:'✅ Importiert!',import_error:'❌ Ungültige Datei',gps_error:'⚠️ GPS nicht verfügbar',max_hornets:'Maximal 13 Hornissen',confirm_reset:'Aktuellen Pot speichern und neuen erstellen?',delete:'Löschen',invalid_time:'Ungültige Zeit',keep_one_hornet:'Mindestens eine Hornisse behalten.',pot_resumed:'✅ Pot-à-Mèche fortgesetzt!',color_in_use:'Diese Farbe wird bereits verwendet von',manual_time:'Oder Zeit hinzufügen (s)',add_manual:'Hinzufügen',manual_time_placeholder:'z.B. 45',hist_pot:'Historischer Pot',flight_delete:'Flug löschen',start_btn:'START',stop_btn:'STOPP',reset_btn_label:'ZURÜCK',hist_delete:'Eintrag löschen',hist_resume:'Diesen Pot fortsetzen',pot_popup:'Pot-à-Mèche',oval_tooltip:'Oval: 200m×100m',news_text:'Willkommen bei VespaTimer Version 2.0! Hier sind die neuesten Updates: 13 Hornissen max mit anpassbaren Farben, Verlauf pro Pot-à-Mèche, kombinierter Start/Stopp-Knopf, integrierter 360°-Kompass, automatische Reinigung nach 90 Tagen, Verlauf exportieren/importieren, historischen Pot fortsetzen, neue Oberfläche, Rätoromanisch (Rumantsch Grischun), integrierter Kontakt, soziale Medien, Vespafinder-Import, automatische Updates, Exportformat erklärt.',compass_calibration_title:'Kompass-Kalibrierung',compass_calibration_when:'WANN kalibrieren:',compass_calibration_how:'WIE kalibrieren:',compass_calibration_when_text:'• Wenn der Kompass auf einem Wert hängen bleibt • Wenn er ständig schwingt • Nachdem das Telefon in der Nähe eines Magneten oder Metallgegenstands war • Zu Beginn jeder Jagdsitzung',compass_calibration_how_text:'• Entfernen Sie sich von Autos, Zäunen oder Magnetuhren • Entfernen Sie die Handyhülle, wenn sie einen Magneten hat • Machen Sie eine große Achterbewegung mit dem Telefon • Wiederholen Sie 2-3 Mal, bis die Richtung stabil ist • Überprüfen Sie mit einem bekannten Kardinalpunkt',color_change_title:'Farbe einer Hornisse ändern',color_change_method:'Methode:',color_change_tip:'Tipp:',color_change_method_text:'• Lange drücken (1 Sekunde) auf den farbigen Balken links neben der Hornissenkarte • Eine Palette von 20 Farben öffnet sich • Wählen Sie die gewünschte Farbe • Die Farbe ist einzigartig für jede Hornisse',color_change_tip_text:'Verwenden Sie unterschiedliche Farben zur Unterscheidung auf der Karte',format_explanation_title:'Exportformate',format_explanation_text:'PDF für Telemeter / JSON zum späteren Reimportieren, GPX/KML für Karten / Verlauf exportieren für Browser- oder Gerätewechsel',import_explanation_title:'Importformate',import_explanation_text:'JSON zum Reimportieren eines kompletten Pot-à-Mèche / Verlauf zum Wiederherstellen des Verlaufs / Vespafinder zum Importieren von Daten aus Vespafinder',entry_not_found:'Eintrag nicht gefunden',invalid_coords:'Ungültige Koordinaten',new_pot_created:'✅ Pot gespeichert und neuer erstellt',undo_delete:'Löschen rückgängig',undo_success:'✅ Löschung rückgängig',notif_enabled:'✅ Benachrichtigungen aktiviert',notif_denied:'❌ Berechtigung verweigert',notif_disabled:'🔕 Benachrichtigungen deaktiviert',lang_changed:'✅ Sprache geändert',pot_saved_notif:'💾 Pot-à-Mèche gespeichert',no_name:'Ohne Namen',hornets:'Hornissen',history_expiry_title:'⚠️ Verlauf',history_expiry_text:'Eintrag/Einträge läuft/laufen in 24h ab',export_success:'📤 Export erfolgreich',history_imported:'✅ Verlauf importiert!',new_entries:'neue Einträge',choose_color:'Farbe wählen',cancel_btn:'Abbrechen',confirm_btn:'Bestätigen',update_available:'🔄 Update verfügbar',update_btn:'Aktualisieren',updating:'Aktualisierung...',vespafinder_instructions:'Fügen Sie den Vespafinder-Link unten ein:',vespafinder_invalid:'❌ Ungültiger Vespafinder-Link',vespafinder_added:'✅ Flug hinzugefügt zu',vespafinder_created:'✅ Neue Hornisse erstellt',vespafinder_coords_mismatch:'Die Koordinaten dieses Links stimmen nicht mit dem aktuellen Pot überein. Was tun?',vespafinder_dont_import:'Nicht importieren',vespafinder_replace:'Koordinaten ersetzen',vespafinder_new_pot:'Ein neuer Pot wird erstellt. Der aktuelle wird gespeichert.',vespafinder_saved:'✅ Vorheriger Pot gespeichert',vespafinder_imported:'✅ Vespafinder-Import erfolgreich',compass_not_supported:'Nicht unterstützt',compass_not_allowed:'Nicht erlaubt',pot_moved:'📍 Pot verschoben'
-},
-it:{
-personal_info:'Info personali',first_name_placeholder:'Nome',last_name_placeholder:'Cognome',phone_placeholder:'📞 Telefono',pot_label:'Pot-à-Mèche',location_placeholder:'Luogo o lat,lng',save_btn:'Salva',inspector_placeholder:'👤 Ispettore (telemetro)',notes_placeholder:'📝 Note...',timer_active:'Timer attivo',hornets_title:'Calabroni',add_hornet:'Aggiungi calabrone',map_title:'Triangolazione',gps_btn:'GPS',manual_coords:'Coordinate',history_btn:'Cronologia 90g',no_flights:'Aggiungi voli per vedere le stime',stats_title:'Statistiche',export_import:'Export/Import',news:'Novità',options:'Opzioni',about_btn:'Info',install_app:'Installa app',language:'Lingua',contact:'Contatto',export_history:'Esporta cronologia',import_btn:'Importa',import_history:'Importa cronologia',import_vespafinder:'Importa Vespafinder',reset_btn:'Nuovo / Salva',about_title_full:'Info VespaTimer',about_text:'Benvenuto su VespaTimer, un sito che facilita il lavoro del pot-à-mèche, calcolando direttamente le medie e triangolando il nido in base ai tuoi tempi.',about_report:'Non dimenticare di segnalare le tue osservazioni (calabrone, nido, ecc.) su:',about_happy:'Buona caccia! 🙂',about_footer1:'Richiede connessione Internet e servizi di localizzazione per varie funzionalità. Fatto da Ben Hupka con l\'aiuto di Deepseek.',about_footer2:'Trova maggiori informazioni su: <a href="https://stopfrelons.ch" target="_blank">stopfrelons.ch</a>',about_instructions_detail:'Istruzioni: compila le info in alto, cronometra i calabroni più volte (minimo 30 secondi per volo), prendi la direzione di volo con la bussola, vedi dove si trova potenzialmente il nido, esporta nel formato desiderato. Per salvare nella cronologia, premi Nuovo / Salva.',no_flights_stats:'Nessun volo registrato',ready:'Pronto',running:'In corso',flights_label:'voli',history_empty:'Nessuna cronologia (90 giorni)',history_limit:'⚠️ Max 200 voci',import_success:'✅ Importato!',import_error:'❌ Errore',gps_error:'⚠️ GPS non disponibile',max_hornets:'Max 13 calabroni',confirm_reset:'Salvare il pot attuale e crearne uno nuovo?',delete:'Elimina',invalid_time:'Tempo non valido',keep_one_hornet:'Mantieni almeno un calabrone.',pot_resumed:'✅ Pot-à-Mèche ripreso!',color_in_use:'Questo colore è già utilizzato da',manual_time:'O aggiungi tempo (s)',add_manual:'Aggiungi',manual_time_placeholder:'es. 45',hist_pot:'Pot storico',flight_delete:'Elimina volo',start_btn:'AVVIA',stop_btn:'FERMA',reset_btn_label:'AZZERA',hist_delete:'Elimina voce',hist_resume:'Riprendi questo pot',pot_popup:'Pot-à-Mèche',oval_tooltip:'Ovale: 200m×100m',news_text:'Benvenuto alla versione 2.0 di VespaTimer! Ecco gli ultimi aggiornamenti: 13 calabroni max con colori personalizzabili, cronologia per pot-à-mèche, pulsante avvio/stop combinato, bussola 360° integrata, pulizia automatica dopo 90 giorni, esportazione/importazione cronologia, riprendi pot storico, nuova interfaccia, romancio (Rumantsch Grischun), contatto integrato, social media, import Vespafinder, aggiornamenti automatici, formato export spiegato.',compass_calibration_title:'Calibrazione bussola',compass_calibration_when:'QUANDO calibrare:',compass_calibration_how:'COME calibrare:',compass_calibration_when_text:'• Se la bussola è bloccata su un valore • Se continua a oscillare • Dopo aver messo il telefono vicino a una calamita o oggetto metallico • All\'inizio di ogni sessione di caccia',compass_calibration_how_text:'• Allontanarsi da auto, recinzioni o orologi magnetici • Rimuovere la cover se ha una calamita • Fare un grande movimento a forma di 8 con il telefono • Ripetere 2-3 volte finché la direzione non è stabile • Verificare puntando un punto cardinale noto',color_change_title:'Cambiare colore calabrone',color_change_method:'Metodo:',color_change_tip:'Consiglio:',color_change_method_text:'• Premere a lungo (1 secondo) sulla barra colorata a sinistra della scheda del calabrone • Si aprirà una tavolozza di 20 colori • Selezionare il colore desiderato • Il colore è unico per ogni calabrone',color_change_tip_text:'Usare colori distinti per differenziare facilmente i calabroni sulla mappa di triangolazione',format_explanation_title:'Formati di esportazione',format_explanation_text:'PDF per telemetro / JSON per reimportare i dati, GPX/KML per caricare su mappe / Esporta cronologia per cambiare browser o dispositivo',import_explanation_title:'Formati di importazione',import_explanation_text:'JSON per reimportare un pot-à-mèche completo / Cronologia per ripristinare la cronologia / Vespafinder per importare i dati da Vespafinder',entry_not_found:'Voce non trovata',invalid_coords:'Coordinate non valide',new_pot_created:'✅ Pot salvato e nuovo creato',undo_delete:'Annulla eliminazione',undo_success:'✅ Eliminazione annullata',notif_enabled:'✅ Notifiche attivate',notif_denied:'❌ Permesso negato',notif_disabled:'🔕 Notifiche disattivate',lang_changed:'✅ Lingua cambiata',pot_saved_notif:'💾 Pot-à-Mèche salvato',no_name:'Senza nome',hornets:'calabroni',history_expiry_title:'⚠️ Cronologia',history_expiry_text:'voce/voci in scadenza tra 24h',export_success:'📤 Esportazione riuscita',history_imported:'✅ Cronologia importata!',new_entries:'nuove voci',choose_color:'Scegli un colore',cancel_btn:'Annulla',confirm_btn:'Conferma',update_available:'🔄 Aggiornamento disponibile',update_btn:'Aggiorna',updating:'Aggiornamento...',vespafinder_instructions:'Incolla il link Vespafinder qui sotto:',vespafinder_invalid:'❌ Link Vespafinder non valido',vespafinder_added:'✅ Volo aggiunto a',vespafinder_created:'✅ Nuovo calabrone creato',vespafinder_coords_mismatch:'Le coordinate di questo link non corrispondono al pot attuale. Cosa fare?',vespafinder_dont_import:'Non importare',vespafinder_replace:'Sostituisci coordinate',vespafinder_new_pot:'Verrà creato un nuovo pot. Quello attuale sarà salvato.',vespafinder_saved:'✅ Pot precedente salvato',vespafinder_imported:'✅ Import Vespafinder riuscito',compass_not_supported:'Non supportato',compass_not_allowed:'Non autorizzato',pot_moved:'📍 Pot spostato'
-},
-rm:{
-personal_info:'Infurmaziuns persunalas',first_name_placeholder:'Prenum',last_name_placeholder:'Num',phone_placeholder:'📞 Telefon',pot_label:'Pot-à-Mèche',location_placeholder:'Num dal lieu u lat,lng',save_btn:'Memorisar',inspector_placeholder:'👤 Inspectur (telemeter)',notes_placeholder:'📝 Notizias...',timer_active:'Cronometr activ',hornets_title:'Vespras',add_hornet:'Agiunger ina vespra',map_title:'Triangulaziun',gps_btn:'GPS',manual_coords:'Coordinatas',history_btn:'Cronologia 90j',no_flights:'Agiunger sgols per vesair stimaziuns',stats_title:'Statisticas',export_import:'Export/Import',news:'Novitads',options:'Opziuns',about_btn:'Davart',install_app:'Installar l\'app',language:'Lingua',contact:'Contact',export_history:'Exportar cronologia',import_btn:'Importar',import_history:'Importar cronologia',import_vespafinder:'Importar Vespafinder',reset_btn:'Nov / Memorisar',about_title_full:'Davart VespaTimer',about_text:'Bainvegni sin VespaTimer, ina pagina web che facilitescha la lavur dal pot-à-mèche, cun calcular medias e triangular il gnieu tenor tes cronometragis.',about_report:'Betg emblidar da signalar tias observaziuns (vespra, gnieu, etc.) sin:',about_happy:'Buna chatscha! 🙂',about_footer1:'Dovra connexiun ad internet e servetschs da localisaziun per differentas funcziunalitads. Fatg da Ben Hupka cun l\'agid da Deepseek.',about_footer2:'Chatti ulteriuras infurmaziuns sin: <a href="https://stopfrelons.ch" target="_blank">stopfrelons.ch</a>',about_instructions_detail:'Instrucziuns: emplenescha las infurmaziuns sisum, cronometrescha las vespras pliras giadas (almain 30 secundas per sgol), prenda la direcziun da sgol cun il cumpass, vesia nua ch\'il gnieu sa chatta eventualmain, exporta en il format desiderà. Per memorisar en la cronologia, smatga sin Nov / Memorisar.',no_flights_stats:'Nagins sgols registrads',ready:'Pront',running:'En curs',flights_label:'sgols',history_empty:'Nagina cronologia (90 dis)',history_limit:'⚠️ Max 200 endataziuns',import_success:'✅ Importà!',import_error:'❌ Datoteca nunvalaivla',gps_error:'⚠️ GPS impussibel',max_hornets:'Massimal 13 vespra',confirm_reset:'Memorisar il pot actual e crear in nov?',delete:'Stizzar',invalid_time:'Temp nunvalid',keep_one_hornet:'Almain ina vespra tegnair.',pot_resumed:'✅ Pot-à-Mèche reprendì!',color_in_use:'Questa colur è gia en diever da',manual_time:'U agiunger in temp (s)',add_manual:'Agiunger',manual_time_placeholder:'p.ex. 45',hist_pot:'Pot istoric',flight_delete:'Stizzar quest sgol',start_btn:'LANTSCHAR',stop_btn:'FRMAR',reset_btn_label:'STIZZAR',hist_delete:'Stizzar endataziun',hist_resume:'Reprender quest pot',pot_popup:'Pot-à-Mèche',oval_tooltip:'Oval: 200m×100m',news_text:'Bainvegni a la versiun 2.0 da VespaTimer! Qua las ultimas actualisaziuns: 13 vespra massimal cun colurs persunalisablas, cronologia per pot-à-mèche, buttun lantschar/frmar cumbinà, cumpass integrà 360°, nettezza automatica suenter 90 dis, export/import da la cronologia, reprender in pot istoric, nova interfatscha, rumantsch (Rumantsch Grischun), contact integrà, raits socialas, import Vespafinder, actualisaziuns automaticas, format d\'export explitgà.',compass_calibration_title:'Calibraziun cumpass',compass_calibration_when:'CURA calibrar:',compass_calibration_how:'CO calibrar:',compass_calibration_when_text:'• Sche il cumpass è bloccà • Sche el oscillescha adina • Suenter esser stà sper in magnet u metal • Al cumenzament da mintga sesida',compass_calibration_how_text:'• S\'allontanar dals metals • Allontanar la cuvrida cun magnet • Far in moviment en furma da 8 • Repeter 2-3 giadas • Verifitgar cun in punct cardinal',color_change_title:'Midar colur vespra',color_change_method:'Metoda:',color_change_tip:'Cussegl:',color_change_method_text:'• Smatgar ditg (1 secunda) sin la bara colurada • S\'avra ina paletta da 20 colurs • Tscherner la colur • La colur è unica',color_change_tip_text:'Utilisar colurs distinctas per differenziar las vespras',format_explanation_title:'Formats d\'export',format_explanation_text:'PDF per il telemeter / JSON per reimportar las datas, GPX/KML per chargiar sin chartas / Exportar cronologia per midar navigatur u apparat',import_explanation_title:'Formats d\'import',import_explanation_text:'JSON per reimportar in pot-à-mèche cumplet / Cronologia per restabilir la cronologia / Vespafinder per importar las datas da Vespafinder',entry_not_found:'Endataziun betg chattada',invalid_coords:'Coordinatas nunvalaivlas',new_pot_created:'✅ Pot memorisà e nov pot creà',undo_delete:'Annullar stizzada',undo_success:'✅ Stizzada annullada',notif_enabled:'✅ Notificaziuns activadas',notif_denied:'❌ Permissi refusà',notif_disabled:'🔕 Notificaziuns deactivadas',lang_changed:'✅ Lingua midada',pot_saved_notif:'💾 Pot-à-Mèche memorisà',no_name:'Senza num',hornets:'vespras',history_expiry_title:'⚠️ Cronologia',history_expiry_text:'endataziun(s) scada/scadan en 24h',export_success:'📤 Export reussì',history_imported:'✅ Cronologia importada!',new_entries:'novas endataziuns',choose_color:'Tscherner ina colur',cancel_btn:'Interrumper',confirm_btn:'Confermar',update_available:'🔄 Actualisaziun disponibla',update_btn:'Actualisar',updating:'Actualisaziun...',vespafinder_instructions:'Encollar il link Vespafinder sut:',vespafinder_invalid:'❌ Link Vespafinder nunvalaivel',vespafinder_added:'✅ Sgol agiuntà a',vespafinder_created:'✅ Nova vespra creada',vespafinder_coords_mismatch:'Las coordinatas da quest link na correspundan betg al pot actual. Tge far?',vespafinder_dont_import:'Betg importar',vespafinder_replace:'Remplazzar las coordinatas',vespafinder_new_pot:'In nov pot vegn creà. Quel actual vegn memorisà.',vespafinder_saved:'✅ Pot precedent memorisà',vespafinder_imported:'✅ Import Vespafinder reussì',compass_not_supported:'Betg supportà',compass_not_allowed:'Betg permess',pot_moved:'📍 Pot spustà'
-}
+fr:{beta_shutdown_message:'Bonjour,\n\nJe vous remercie d\'avoir utilisé la version BÊTA saison 2026. Son service a pris fin, mais vous pouvez encore exporter vos données pour les importer dans la nouvelle version en ligne à :\nvespacaution.github.io/VespaTimer/\nJusqu\'au 31.10.2026, et continuer vos recherches.\n\nMerci encore de votre soutien et à l\'année prochaine pour la version BÊTA 2027.\n\nBonne fin de saison et de chasse,\n\nBen'},
+en:{beta_shutdown_message:'Hello,\n\nThank you for using the VespaTimer 2026 BETA. Its service has ended, but you can still export your data to import it into the new online version at:\nvespacaution.github.io/VespaTimer/\nUntil 31.10.2026, and continue your research.\n\nThank you again for your support, and see you next year for the 2027 BETA.\n\nHave a great end of season and happy hunting,\n\nBen'},
+de:{beta_shutdown_message:'Hallo,\n\nVielen Dank für die Nutzung der VespaTimer BETA 2026. Der Dienst wurde beendet, aber Sie können Ihre Daten weiterhin exportieren, um sie in die neue Online-Version unter:\nvespacaution.github.io/VespaTimer/\nBis zum 31.10.2026 zu importieren und Ihre Recherchen fortzusetzen.\n\nVielen Dank für Ihre Unterstützung und bis nächstes Jahr zur BETA 2027.\n\nEin schönes Saisonende und gute Jagd,\n\nBen'},
+it:{beta_shutdown_message:'Ciao,\n\nGrazie per aver utilizzato la versione BETA 2026 di VespaTimer. Il servizio è terminato, ma puoi ancora esportare i tuoi dati per importarli nella nuova versione online su:\nvespacaution.github.io/VespaTimer/\nFino al 31.10.2026, e continuare le tue ricerche.\n\nGrazie ancora per il tuo supporto e ci vediamo l\'anno prossimo per la BETA 2027.\n\nBuona fine stagione e buona caccia,\n\nBen'},
+rm:{beta_shutdown_message:'Bun di,\n\nGrazie per avair duvrà la versiun BETA 2026 da VespaTimer. Ses servetsch è vegnì terminà, ma ti pos anc exportar tias datas per las importar en la nova versiun online sin:\nvespacaution.github.io/VespaTimer/\nFin ils 31.10.2026, e cuntinuar tias retschertgas.\n\nGrazie anc ina giada per tia purschida e fin l\'onn proxim per la BETA 2027.\n\nBuna fin da sesida e buna chatscha,\n\nBen'}
 };
+
+var currentLang='fr';
+var hornets=[],surveyLocation={lat:46.8,lng:6.8,name:''},inspectorName='',notes='',personalInfo={firstName:'',lastName:'',phone:''};
+var map=null,potMarker=null;
+
 function t(key){return(translations[currentLang]&&translations[currentLang][key])||key;}
-function applyTranslations(){var els=document.querySelectorAll('[data-lang]');for(var i=0;i<els.length;i++){var key=els[i].getAttribute('data-lang');if(key==='about_footer2'){els[i].innerHTML=t(key);}else{els[i].textContent=t(key);}}var phs=document.querySelectorAll('[data-lang-placeholder]');for(var j=0;j<phs.length;j++)phs[j].placeholder=t(phs[j].getAttribute('data-lang-placeholder'));}
 
-function debouncedSave(){clearTimeout(debounceTimer);debounceTimer=setTimeout(saveAll,500);}
-function createHornet(name){var usedColors=hornets.filter(function(h){return h.color}).map(function(h){return h.color});var assignedColor=null;for(var j=0;j<COLORS.length;j++){if(usedColors.indexOf(COLORS[j])===-1){assignedColor=COLORS[j];break;}}if(!assignedColor)assignedColor=COLORS[0];return{id:Date.now()+Math.random(),name:name||'Frelon 1',direction:0,flights:[],timerRunning:false,timerStart:null,elapsedSeconds:0,color:assignedColor};}
-
-function getAvg(h){if(!h.flights.length)return 0;var s=0;for(var i=0;i<h.flights.length;i++)s+=h.flights[i];return s/h.flights.length;}
-function getDist(avg){if(avg<=30)return 0;return(avg-30)*2.5;}
-function getNestCoordsForHornet(h,loc){var d=getDist(getAvg(h));if(d<=0)return null;var rad=(h.direction*Math.PI)/180;var l=loc||surveyLocation;return{lat:l.lat+(d/111320)*Math.cos(rad),lng:l.lng+(d/(111320*Math.cos(l.lat*Math.PI/180)))*Math.sin(rad),distance:d,direction:h.direction};}
-function getNestCoords(h){return getNestCoordsForHornet(h,surveyLocation);}
-function createOval(center,dirDeg){var pts=[];var hw=100,hh=50;var dirRad=(dirDeg*Math.PI)/180;var perpRad=dirRad+Math.PI/2;for(var i=0;i<64;i++){var angle=(i/64)*2*Math.PI;var rx=hh*Math.cos(angle);var ry=hw*Math.sin(angle);pts.push(L.latLng(center.lat+(rx/111320)*Math.cos(dirRad)-(ry/111320)*Math.cos(perpRad),center.lng+(rx/(111320*Math.cos(center.lat*Math.PI/180)))*Math.sin(dirRad)-(ry/(111320*Math.cos(center.lat*Math.PI/180)))*Math.sin(perpRad)));}return pts;}
-
-function saveAll(){try{localStorage.setItem('vd_v2',JSON.stringify({hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo,collapsedCards:collapsedCards}));}catch(e){}}
-function getHist(){try{var data=localStorage.getItem('vh_v2');if(!data)return[];var parsed=JSON.parse(data);if(Array.isArray(parsed))return parsed;return[];}catch(e){return[];}}
-function loadAll(){try{var d=JSON.parse(localStorage.getItem('vd_v2'));if(d){if(d.hornets)hornets=d.hornets;if(d.surveyLocation)surveyLocation=d.surveyLocation;inspectorName=d.inspectorName||'';notes=d.notes||'';if(d.personalInfo)personalInfo=d.personalInfo;if(d.collapsedCards)collapsedCards=d.collapsedCards;}}catch(e){}var sl=localStorage.getItem('vl_v2');if(sl&&translations[sl])currentLang=sl;notificationsEnabled=localStorage.getItem('notif_enabled')==='true';document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';if(!hornets.length)hornets.push(createHornet('Frelon 1'));var savedResumed=localStorage.getItem('resumed_idx');if(savedResumed){resumedFromIndex=parseInt(savedResumed);}}
-function saveHist(){var hist=[];try{hist=JSON.parse(localStorage.getItem('vh_v2')||'[]');}catch(e){}var newEntry={date:new Date().toISOString(),location:{lat:surveyLocation.lat,lng:surveyLocation.lng,name:surveyLocation.name},hornets:hornets.map(function(h){return{name:h.name,direction:h.direction,flights:h.flights.slice(),color:h.color};}),notes:notes,inspectorName:inspectorName,personalInfo:personalInfo};if(resumedFromIndex>=0&&resumedFromIndex<hist.length){hist[resumedFromIndex]=newEntry;}else{hist.push(newEntry);}if(hist.length>MAX_HISTORY)hist=hist.slice(-MAX_HISTORY);var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;hist=hist.filter(function(e){return new Date(e.date)>new Date(cutoff);});try{localStorage.setItem('vh_v2',JSON.stringify(hist));}catch(e){}localStorage.setItem('resumed_idx',resumedFromIndex);sendNotification(t('pot_saved_notif'),''+(newEntry.location.name||t('no_name'))+' • '+(newEntry.hornets?newEntry.hornets.length:0)+' '+t('hornets'));checkHistoryExpiry();}
-
+function showToast(message){var toast=document.createElement('div');toast.className='toast';toast.textContent=message;document.body.appendChild(toast);setTimeout(function(){toast.remove();},3000);}
 function showAlert(message,icon){document.getElementById('customAlertMessage').textContent=message;document.getElementById('customAlertIcon').textContent=icon||'⚠️';document.getElementById('customAlertOverlay').style.display='flex';}
 function closeCustomAlert(){document.getElementById('customAlertOverlay').style.display='none';}
-function showConfirmAlert(message,icon,callback){document.getElementById('confirmAlertMessage').textContent=message;document.getElementById('confirmAlertIcon').textContent=icon||'⚠️';confirmCallback=callback;document.getElementById('confirmAlertOverlay').style.display='flex';}
-function closeConfirmAlert(result){document.getElementById('confirmAlertOverlay').style.display='none';if(result&&confirmCallback){confirmCallback();}confirmCallback=null;}
-function showToast(message){var toast=document.createElement('div');toast.className='toast';toast.textContent=message;document.body.appendChild(toast);setTimeout(function(){toast.remove();},3000);}
 
-function sendNotification(title,body){if(!notificationsEnabled)return;if('Notification'in window&&Notification.permission==='granted'){if(navigator.serviceWorker){navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icon.png',badge:'icon.png'});});}else{try{new Notification(title,{body:body,icon:'icon.png'});}catch(e){}}}}
-function toggleNotifications(){notificationsEnabled=!notificationsEnabled;localStorage.setItem('notif_enabled',notificationsEnabled);updateNotifButton();if(notificationsEnabled){if('Notification'in window&&Notification.permission!=='granted'){Notification.requestPermission().then(function(permission){if(permission==='granted'){showToast(t('notif_enabled'));}else{notificationsEnabled=false;localStorage.setItem('notif_enabled',false);updateNotifButton();showToast(t('notif_denied'));}});}else{showToast(t('notif_enabled'));}}else{showToast(t('notif_disabled'));}}
-function updateNotifButton(){var btn=document.getElementById('notifBtnLabel');if(btn){btn.textContent=notificationsEnabled?'✅ ON':'🔕 OFF';}}
-function checkHistoryExpiry(){var hist=getHist();var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;var expiring=hist.filter(function(e){var diff=new Date(e.date).getTime()-cutoff;return diff<24*60*60*1000&&diff>0;});if(expiring.length>0){sendNotification(t('history_expiry_title'),expiring.length+' '+t('history_expiry_text'));}}
-
-function showUndoButton(){var existing=document.getElementById('undoDelete');if(existing)existing.remove();var btn=document.createElement('button');btn.id='undoDelete';btn.className='btn-gold btn-sm';btn.innerHTML='↩️ '+t('undo_delete');btn.onclick=undoDelete;document.body.appendChild(btn);clearTimeout(undoTimer);undoTimer=setTimeout(function(){var b=document.getElementById('undoDelete');if(b)b.remove();lastDeleted=null;},5000);}
-function undoDelete(){if(!lastDeleted)return;if(Date.now()-lastDeleted.timestamp>5000)return;switch(lastDeleted.type){case'flight':var h=hornets.find(function(x){return x.id===lastDeleted.hornetId});if(h)h.flights.splice(lastDeleted.index,0,lastDeleted.value);break;case'hornet':if(hornets.length<MAX_HORNETS)hornets.push(lastDeleted.hornet);break;case'history':var hist=getHist();hist.splice(lastDeleted.index,0,lastDeleted.entry);localStorage.setItem('vh_v2',JSON.stringify(hist));showHistory();break;}renderAll();saveAll();if(map)drawAnalysis();lastDeleted=null;var b=document.getElementById('undoDelete');if(b)b.remove();showToast(t('undo_success'));}
-
-function deleteFlight(hid,idx){var h=hornets.find(function(x){return x.id===hid});if(!h||idx<0||idx>=h.flights.length)return;lastDeleted={type:'flight',hornetId:hid,index:idx,value:h.flights[idx],timestamp:Date.now()};h.flights.splice(idx,1);renderAll();saveAll();showUndoButton();}
-function deleteHornet(id){if(hornets.length<=1){showAlert(t('keep_one_hornet'),'🐝');return;}var h=hornets.find(function(x){return x.id===id});if(!h)return;lastDeleted={type:'hornet',hornet:h,timestamp:Date.now()};hornets=hornets.filter(function(x){return x.id!==id});delete collapsedCards[id];renderAll();saveAll();showUndoButton();}
-function deleteHistEntry(index){var hist=getHist();if(index<0||index>=hist.length)return;lastDeleted={type:'history',entry:hist[index],index:index,timestamp:Date.now()};hist.splice(index,1);localStorage.setItem('vh_v2',JSON.stringify(hist));showHistory();showUndoButton();}
-
-function resumeHistEntryByIndex(index){var hist=getHist();if(index<0||index>=hist.length){showAlert(t('entry_not_found'),'❌');return;}var entry=hist[index];var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasCurrentData){saveHist();}surveyLocation=entry.location||{lat:46.8,lng:6.8,name:''};inspectorName=entry.inspectorName||'';notes=entry.notes||'';if(entry.personalInfo){personalInfo=entry.personalInfo;}else{personalInfo={firstName:'',lastName:'',phone:''};}if(entry.hornets&&entry.hornets.length){hornets=entry.hornets.map(function(h){var nh=createHornet(h.name);nh.direction=h.direction||0;nh.flights=h.flights||[];nh.color=h.color||null;return nh;});}else{hornets=[createHornet('Frelon 1')];}resumedFromIndex=index;localStorage.setItem('resumed_idx',resumedFromIndex);document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';document.getElementById('locationInput').value=surveyLocation.name||surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);document.getElementById('locationDisplay').textContent=surveyLocation.name||surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);document.getElementById('inspectorInput').value=inspectorName;document.getElementById('notesField').value=notes;updatePotMarker();if(map)map.setView([surveyLocation.lat,surveyLocation.lng],16);renderAll();showToast(t('pot_resumed'));}
-
-function toggleHistoricalFlights(d){historicalVisibility[d]=!historicalVisibility[d];drawAnalysis(getHist());}
-
-function openModal(id){document.getElementById(id).style.display='flex';}
-function closeModal(id){document.getElementById(id).style.display='none';if(id==='compassModal')stopCompass();}
-
-function openLangModal(){var langs=[{code:'fr',flag:'🇫🇷',name:'Français'},{code:'en',flag:'🇬🇧',name:'English'},{code:'de',flag:'🇩🇪',name:'Deutsch'},{code:'it',flag:'🇮🇹',name:'Italiano'},{code:'rm',flag:'🇨🇭',name:'Rumantsch'}];var html='';for(var i=0;i<langs.length;i++){html+='<div class="lang-option'+(currentLang===langs[i].code?' selected':'')+'" onclick="changeLanguage(\''+langs[i].code+'\')"><span class="lang-flag">'+langs[i].flag+'</span><span class="lang-name">'+langs[i].name+'</span></div>';}document.getElementById('langOptions').innerHTML=html;openModal('langModal');}
-function changeLanguage(lang){currentLang=lang;localStorage.setItem('vl_v2',lang);closeModal('langModal');applyTranslations();renderAll();if(map)drawAnalysis();showToast(t('lang_changed'));}
-
-function openCompassModal(){openModal('compassModal');startCompass();setTimeout(drawGraduations,100);}
-function startCompass(){
-  compassActive=true;
-  document.getElementById('compassNeedle').style.display='none';
-  document.getElementById('compassDirection').textContent='--°';
-  if('AbsoluteOrientationSensor' in window){
-    try{
-      compassSensor=new AbsoluteOrientationSensor({frequency:60,referenceFrame:'screen'});
-      compassSensor.addEventListener('reading',function(){
-        if(!compassActive)return;
-        var q=compassSensor.quaternion;
-        var heading=Math.atan2(2*q[0]*q[1]+2*q[2]*q[3],1-2*q[1]*q[1]-2*q[2]*q[2]);
-        heading=((heading*(180/Math.PI))+360)%360;
-        heading=Math.round(heading);
-        var needle=document.getElementById('compassNeedle');
-        if(needle){needle.style.display='block';needle.style.transform='rotate('+heading+'deg)';}
-        document.getElementById('compassDirection').textContent=heading+'°';
-      });
-      compassSensor.start();
-    }catch(e){startDeviceOrientation();}
-  }else{startDeviceOrientation();}
-}
-function startDeviceOrientation(){
-  if(!window.DeviceOrientationEvent){document.getElementById('compassDirection').textContent=t('compass_not_supported');return;}
-  if(typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission().then(function(p){
-      if(p==='granted'){window.addEventListener('deviceorientation',handleOrientation,true);}
-      else{document.getElementById('compassDirection').textContent=t('compass_not_allowed');}
-    }).catch(function(){document.getElementById('compassDirection').textContent=t('compass_not_supported');});
-  }else{window.addEventListener('deviceorientation',handleOrientation,true);}
-}
-function stopCompass(){compassActive=false;if(compassSensor){compassSensor.stop();compassSensor=null;}window.removeEventListener('deviceorientation',handleOrientation,true);}
-function handleOrientation(e){
-  if(!compassActive)return;
-  var heading=0;
-  if(e.webkitCompassHeading!==undefined&&e.webkitCompassHeading!==null){heading=e.webkitCompassHeading;}
-  else if(e.alpha!==null&&e.alpha!==undefined){heading=360-e.alpha;}
-  else{return;}
-  heading=Math.round(heading)%360;
-  if(heading<0)heading+=360;
-  var needle=document.getElementById('compassNeedle');
-  if(needle){needle.style.display='block';needle.style.transform='rotate('+heading+'deg)';}
-  document.getElementById('compassDirection').textContent=heading+'°';
-}
-function drawGraduations(){var g=document.getElementById('compassGraduations');if(!g)return;var html='';for(var i=0;i<360;i++){var angle=i*Math.PI/180;var innerR=i%10===0?125:130;var outerR=145;var x1=150+innerR*Math.sin(angle);var y1=150-innerR*Math.cos(angle);var x2=150+outerR*Math.sin(angle);var y2=150-outerR*Math.cos(angle);var stroke=i%10===0?'rgba(255,255,255,0.6)':'rgba(255,255,255,0.2)';var sw=i%10===0?2:1;html+='<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+stroke+'" stroke-width="'+sw+'"/>';if(i%30===0){var lx=150+108*Math.sin(angle);var ly=150-108*Math.cos(angle);html+='<text x="'+lx+'" y="'+ly+'" fill="rgba(255,255,255,0.5)" font-size="9" text-anchor="middle" dominant-baseline="middle">'+i+'°</text>';}}g.innerHTML=html;}
-
-function toggleCollapse(id){collapsedCards[id]=!collapsedCards[id];saveAll();renderAll();if(map)drawAnalysis();}
-function toggleTimer(id){var h=hornets.find(function(x){return x.id===id});if(!h)return;if(h.timerRunning){stopTimer(id);}else{startTimer(id);startTimerInterval();}}
-function startTimer(id){var h=hornets.find(function(x){return x.id===id});if(!h||h.timerRunning||h.flights.length>=5)return;h.timerRunning=true;h.timerStart=Date.now()-(h.elapsedSeconds*1000);renderAll();saveAll();}
-function stopTimer(id){var h=hornets.find(function(x){return x.id===id});if(!h||!h.timerRunning)return;var elapsed=Math.floor((Date.now()-h.timerStart)/1000);h.timerRunning=false;h.timerStart=null;if(elapsed>0){h.flights.push(elapsed);if(h.flights.length>5)h.flights.shift();}h.elapsedSeconds=0;renderAll();saveAll();}
-function resetTimer(id){var h=hornets.find(function(x){return x.id===id});if(!h)return;h.timerRunning=false;h.timerStart=null;h.elapsedSeconds=0;renderAll();saveAll();}
-function addManualTime(id){var h=hornets.find(function(x){return x.id===id});if(!h||h.flights.length>=5)return;var inp=document.getElementById('mt_'+id);if(!inp)return;var v=parseInt(inp.value);if(isNaN(v)||v<=0){showAlert(t('invalid_time'),'❌');return;}h.flights.push(v);if(h.flights.length>5)h.flights.shift();inp.value='';renderAll();saveAll();}
-function updateDir(id,val){var h=hornets.find(function(x){return x.id===id});if(!h)return;h.direction=Math.min(359,Math.max(0,parseInt(val)||0));saveAll();if(map)drawAnalysis();}
-function updateName(id,val){var h=hornets.find(function(x){return x.id===id});if(!h)return;h.name=val||'Frelon';saveAll();}
-function addHornet(){if(hornets.length>=MAX_HORNETS){showAlert(t('max_hornets'),'⚠️');return;}hornets.push(createHornet('Frelon '+(hornets.length+1)));renderAll();saveAll();}
-
-function setLocation(){var v=document.getElementById('locationInput').value.trim();if(!v)return;surveyLocation.name=v;var m=v.match(/([-+]?\d+\.?\d*)\s*[,;]\s*([-+]?\d+\.?\d*)/);if(m){surveyLocation.lat=parseFloat(m[1]);surveyLocation.lng=parseFloat(m[2]);}document.getElementById('locationDisplay').textContent=surveyLocation.name||surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);updatePotMarker();renderAll();saveAll();}
-function getGPS(){if(!navigator.geolocation){showAlert(t('gps_error'),'⚠️');return;}navigator.geolocation.getCurrentPosition(function(p){surveyLocation.lat=p.coords.latitude;surveyLocation.lng=p.coords.longitude;document.getElementById('locationInput').value=p.coords.latitude.toFixed(5)+', '+p.coords.longitude.toFixed(5);document.getElementById('locationDisplay').textContent=p.coords.latitude.toFixed(5)+', '+p.coords.longitude.toFixed(5);updatePotMarker();if(map)map.setView([surveyLocation.lat,surveyLocation.lng],16);renderAll();saveAll();},function(){showAlert(t('gps_error'),'⚠️');},{enableHighAccuracy:true,timeout:10000});}
-function manualCoords(){document.getElementById('coordLatInput').value=surveyLocation.lat.toFixed(5);document.getElementById('coordLngInput').value=surveyLocation.lng.toFixed(5);openModal('coordModal');}
-function saveManualCoords(){var lat=parseFloat(document.getElementById('coordLatInput').value);var lng=parseFloat(document.getElementById('coordLngInput').value);if(isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180){showAlert(t('invalid_coords'),'❌');return;}surveyLocation.lat=lat;surveyLocation.lng=lng;document.getElementById('locationInput').value=lat.toFixed(5)+', '+lng.toFixed(5);document.getElementById('locationDisplay').textContent=lat.toFixed(5)+', '+lng.toFixed(5);closeModal('coordModal');updatePotMarker();if(map)map.setView([surveyLocation.lat,surveyLocation.lng],16);renderAll();saveAll();showToast('✅ '+t('save_btn'));}
-function initMap(){
-  var el=document.getElementById('map');
-  if(!el){setTimeout(initMap,500);return;}
-  if(!window.L){console.error('Leaflet not loaded');return;}
-  if(map){map.invalidateSize();return;}
+function loadAll(){
   try{
-    map=L.map('map',{zoomControl:true}).setView([surveyLocation.lat,surveyLocation.lng],16);
-    
-    var osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'© OpenStreetMap',
-      maxZoom:19,
-      minZoom:0,
-      keepBuffer:4,
-      updateWhenIdle:false
-    });
-    
-    var swisstopoLayer=L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',{
-      attribution:'© swisstopo',
-      maxZoom:19,
-      minZoom:14,
-      maxNativeZoom:19,
-      keepBuffer:4,
-      updateWhenIdle:false
-    });
-    
-    var currentLayer=null;
-    var requestCount=0;
-    var requestResetTimer=null;
-    var swisstopoDisabled=false;
-    
-    function trackSwisstopoRequest(){
-      requestCount++;
-      if(requestCount>=900){
-        swisstopoDisabled=true;
-        if(currentLayer===swisstopoLayer){
-          map.removeLayer(swisstopoLayer);
-          currentLayer=osmLayer;
-          currentLayer.addTo(map);
-          currentLayer.redraw();
-        }
-      }
-      if(!requestResetTimer){
-        requestResetTimer=setTimeout(function(){
-          requestCount=0;
-          swisstopoDisabled=false;
-          requestResetTimer=null;
-          updateBaseLayer();
-        },60000);
-      }
+    var d=JSON.parse(localStorage.getItem('vd_v2'));
+    if(d){
+      if(d.hornets)hornets=d.hornets;
+      if(d.surveyLocation)surveyLocation=d.surveyLocation;
+      inspectorName=d.inspectorName||'';
+      notes=d.notes||'';
+      if(d.personalInfo)personalInfo=d.personalInfo;
     }
-    
-    swisstopoLayer.on('tileload',trackSwisstopoRequest);
-    swisstopoLayer.on('tileerror',trackSwisstopoRequest);
-    
-    function isInSwitzerland(lat,lng){
-      return lat>=45.8 && lat<=47.8 && lng>=5.9 && lng<=10.5;
-    }
-    
-     var switchTimer=null;
-function updateBaseLayer(){
-  clearTimeout(switchTimer);
-  switchTimer=setTimeout(function(){
-    var zoom=map.getZoom();
-    var center=map.getCenter();
-    var inCH=isInSwitzerland(center.lat,center.lng);
-    var useSwisstopo=inCH && zoom>=14 && !swisstopoDisabled;
-    
-    var targetLayer=useSwisstopo?swisstopoLayer:osmLayer;
-    
-    if(currentLayer!==targetLayer){
-      if(currentLayer)map.removeLayer(currentLayer);
-      currentLayer=targetLayer;
-      currentLayer.addTo(map);
-      setTimeout(function(){if(currentLayer)currentLayer.redraw();},50);
-    }
-  },300);
+  }catch(e){}
+  var sl=localStorage.getItem('vl_v2');
+  if(sl&&translations[sl])currentLang=sl;
 }
 
-updateBaseLayer();
-map.on('zoomend',updateBaseLayer);
-map.on('moveend',updateBaseLayer);   
-    updatePotMarker();
-    setTimeout(function(){if(map)map.invalidateSize();},400);
-    
-    // Long press to move pot (unchanged)
-    var pressTimer=null;
-    var startX=0;
-    var startY=0;
-    var moved=false;
-    function clearPress(){if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}}
-    function getLatLng(clientX,clientY){
-      var rect=map.getContainer().getBoundingClientRect();
-      var point=L.point(clientX-rect.left,clientY-rect.top);
-      return map.containerPointToLatLng(point);
-    }
-    function startPress(e){
-      var clientX=0,clientY=0;
-      if(e.touches&&e.touches[0]){clientX=e.touches[0].clientX;clientY=e.touches[0].clientY;}
-      else if(e.clientX!==undefined){clientX=e.clientX;clientY=e.clientY;}
-      else{return;}
-      startX=clientX;
-      startY=clientY;
-      moved=false;
-      clearPress();
-      pressTimer=setTimeout(function(){
-        if(moved)return;
-        var latlng=getLatLng(clientX,clientY);
-        if(!latlng)return;
-        surveyLocation.lat=latlng.lat;
-        surveyLocation.lng=latlng.lng;
-        document.getElementById('locationInput').value=surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);
-        document.getElementById('locationDisplay').textContent=surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);
-        updatePotMarker();
-        drawAnalysis();
-        saveAll();
-        showToast(t('pot_moved'));
-        pressTimer=null;
-      },800);
-    }
-    function movePress(e){
-      if(!pressTimer)return;
-      var clientX=0,clientY=0;
-      if(e.touches&&e.touches[0]){clientX=e.touches[0].clientX;clientY=e.touches[0].clientY;}
-      else if(e.clientX!==undefined){clientX=e.clientX;clientY=e.clientY;}
-      if(Math.abs(clientX-startX)>10||Math.abs(clientY-startY)>10){moved=true;clearPress();}
-    }
-    function endPress(){clearPress();}
-    var mapContainer=map.getContainer();
-    mapContainer.addEventListener('touchstart',startPress,{passive:true});
-    mapContainer.addEventListener('touchmove',movePress,{passive:true});
-    mapContainer.addEventListener('touchend',endPress);
-    mapContainer.addEventListener('touchcancel',endPress);
-    mapContainer.addEventListener('mousedown',startPress);
-    mapContainer.addEventListener('mousemove',movePress);
-    mapContainer.addEventListener('mouseup',endPress);
-    mapContainer.addEventListener('mouseleave',endPress);
-  }catch(e){console.error('Map init failed:',e);}
-            }
-
-function updatePotMarker(){
-  if(!map)return;
-  if(potMarker)map.removeLayer(potMarker);
-  var beeIcon=L.divIcon({
-    html:'<div style="font-size:30px;line-height:1;text-align:center;width:30px;height:30px;display:flex;align-items:center;justify-content:center;">🍯</div>',
-    iconSize:[20,20],
-    iconAnchor:[10,10],
-    className:''
-  });
-  potMarker=L.marker([surveyLocation.lat,surveyLocation.lng],{draggable:false,icon:beeIcon}).addTo(map);
+function getHist(){
+  try{
+    var d=localStorage.getItem('vh_v2');
+    if(!d)return[];
+    var p=JSON.parse(d);
+    return Array.isArray(p)?p:[];
+  }catch(e){return[];}
 }
-function drawAnalysis(histData){
-  if(!map)return;
-  for(var i=0;i<mapLines.length;i++){if(map.hasLayer(mapLines[i]))map.removeLayer(mapLines[i]);}
-  mapLines=[];
-  var preds=[];
-  for(var idx=0;idx<hornets.length;idx++){
-    var h=hornets[idx];
-    if(!h.flights.length)continue;
-    var c=h.color||COLORS[idx%COLORS.length];
-    var nd=getNestCoordsForHornet(h,surveyLocation);
-    if(!nd)continue;
-    var pot=L.latLng(surveyLocation.lat,surveyLocation.lng);
-    var nestPt=L.latLng(nd.lat,nd.lng);
-    mapLines.push(L.polyline([pot,nestPt],{color:c,weight:3,dashArray:'5,5'}).addTo(map));
-    mapLines.push(L.polygon(createOval(nestPt,nd.direction),{color:c,fillOpacity:0.15,weight:1.5,dashArray:'4,4'}).addTo(map));
-    var m=L.circleMarker(nestPt,{radius:7,color:c,fillOpacity:0.7}).addTo(map);
-    m.bindPopup('<b>'+h.name+'</b><br>~'+nd.distance.toFixed(0)+'m<br>🧭 '+h.direction+'°<br>⬭ '+t('oval_tooltip'));
-    mapLines.push(m);
-    preds.push({name:h.name,dist:nd.distance});
+
+function downloadFile(blob,filename){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function sharedExport(blob,filename,type){
+  var file=new File([blob],filename,{type:type});
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:filename}).catch(function(){downloadFile(blob,filename);});
+  }else{
+    downloadFile(blob,filename);
   }
-  if(histData&&histData.length){
-    for(var ei=0;ei<histData.length;ei++){
-      (function(e){
-        if(!e.location||!e.hornets)return;
-        var hp=L.latLng(e.location.lat,e.location.lng);
-        var hpi=L.divIcon({html:'📍',iconSize:[20,20],iconAnchor:[10,10],className:''});
-        var hpm=L.marker([e.location.lat,e.location.lng],{icon:hpi,opacity:0.7}).addTo(map);
-        hpm.bindPopup('<b>'+t('hist_pot')+'</b><br>📅 '+new Date(e.date).toLocaleDateString());
-        hpm.on('click',function(){toggleHistoricalFlights(e.date);});
-        mapLines.push(hpm);
-        if(historicalVisibility[e.date]){
-          for(var hi=0;hi<e.hornets.length;hi++){
-            var hh=e.hornets[hi];
-            if(!hh.flights||!hh.flights.length)continue;
-            var avg=0;
-            for(var fi=0;fi<hh.flights.length;fi++)avg+=hh.flights[fi];
-            avg=avg/hh.flights.length;
-            var dm=(avg-30)*2.5;
-            if(dm>0){
-              var c2=hh.color||'#999';
-              var dr=(hh.direction*Math.PI)/180;
-              var nh=L.latLng(e.location.lat+(dm/111320)*Math.cos(dr),e.location.lng+(dm/(111320*Math.cos(e.location.lat*Math.PI/180)))*Math.sin(dr));
-              mapLines.push(L.polyline([hp,nh],{color:c2,weight:2,dashArray:'3,7',opacity:0.6}).addTo(map));
-              mapLines.push(L.polygon(createOval(nh,hh.direction),{color:c2,fillOpacity:0.08,weight:1,dashArray:'3,5',opacity:0.5}).addTo(map));
-              var hm=L.circleMarker(nh,{radius:4,color:c2,fillOpacity:0.5,weight:1}).addTo(map);
-              hm.bindPopup('<b>Hist: '+hh.name+'</b><br>📅 '+new Date(e.date).toLocaleDateString());
-              mapLines.push(hm);
-            }
-          }
-        }
-      })(histData[ei]);
-    }
+}
+
+function exportShutdownJSON(){
+  var data={version:'2.0',hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo};
+  var blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+  var filename='vespatimer_beta2026_'+new Date().toISOString().slice(0,10)+'.json';
+  sharedExport(blob,filename,'application/json');
+  showToast('✅ '+filename);
+}
+
+function exportShutdownHistory(){
+  var hist=getHist();
+  var blob=new Blob([JSON.stringify(hist,null,2)],{type:'application/json'});
+  var filename='vespatimer_beta2026_history_'+new Date().toISOString().slice(0,10)+'.json';
+  sharedExport(blob,filename,'application/json');
+  showToast('✅ '+filename);
+}
+
+function exportShutdownPDF(){
+  var hornetsWithFlights=hornets.filter(function(h){return h.flights&&h.flights.length>0;});
+  if(!hornetsWithFlights.length){
+    showAlert('Aucun vol enregistré pour un PDF','📄');
+    return;
   }
-  document.getElementById('predictionPanel').innerHTML=preds.length?'🔍 '+preds.map(function(p){return p.name+' → ~'+p.dist.toFixed(0)+'m'}).join(' · '):'⚠️ '+t('no_flights');
-                                                                                              }
-
-function showHistory(){var hist=getHist();var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;var recent=hist.filter(function(e){return new Date(e.date)>new Date(cutoff);});drawAnalysis(recent);var panel=document.getElementById('historyPanel');panel.style.display='block';panel.innerHTML='<div style="font-size:0.8rem;color:#c47b6b;margin-bottom:8px;">'+t('history_limit')+' ('+recent.length+'/'+MAX_HISTORY+')</div>';if(recent.length){var html='';var startIdx=hist.length-recent.length;for(var i=recent.length-1;i>=0;i--){var e=recent[i];var actualIndex=startIdx+i;html+='<div class="history-item"><strong>📅 '+new Date(e.date).toLocaleDateString()+'</strong><br>🐝 '+(e.hornets?e.hornets.length:0)+' frelons | '+(e.hornets?e.hornets.map(function(h){return h.name}).join(', '):'?')+'<br>📍 '+(e.location&&e.location.name?e.location.name:'?')+'<div class="history-actions"><button class="btn-gold btn-sm" onclick="resumeHistEntryByIndex('+actualIndex+')">🔄 '+t('hist_resume')+'</button><button class="btn-red btn-sm" onclick="deleteHistEntry('+actualIndex+')">🗑️ '+t('hist_delete')+'</button></div></div>';}panel.innerHTML+=html;}else{panel.innerHTML+='<div class="history-item">📭 '+t('history_empty')+'</div>';}}
-var deferredPrompt;
-window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;document.getElementById('installBtn2').style.display='block';});
-var isApple=/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
-if(isApple){setTimeout(function(){document.getElementById('installBtn2').style.display='block';},2000);}
-function installPWA(){var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);if(isIOS){showAlert('📱 iOS: Dans Safari, appuyez sur le bouton Partager (carré avec flèche) en bas de l\'écran, puis choisissez "Sur l\'écran d\'accueil"','📱');return;}if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(function(result){deferredPrompt=null;});}}
-
-function dl(b,n){var file=new File([b],n,{type:b.type||'application/octet-stream'});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:n}).then(function(){sendNotification(t('export_success'),n);}).catch(function(err){if(err.name!=='AbortError'){downloadFile(b,n);}});}else{downloadFile(b,n);}}
-function downloadFile(b,n){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);sendNotification(t('export_success'),n);}
-
-function exportJSON(){closeModal('exportModal');var data={version:'2.0',hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo};dl(new Blob([JSON.stringify(data)],{type:'application/json'}),'vespatimer.json');}
-function exportPDF(){
-  closeModal('exportModal');
-  if(!map){
-    showAlert('Map not ready','⚠️');
+  showToast('⏳ Génération du PDF...');
+  
+  var jsPDFConstructor=window.jspdf?window.jspdf.jsPDF:window.jsPDF;
+  if(!jsPDFConstructor||!window.html2canvas){
+    showAlert('Bibliothèque PDF non disponible','❌');
     return;
   }
   
-  showToast('⏳ Génération du PDF...');
+  var pdf=new jsPDFConstructor('p','mm','a4');
+  var pdfWidth=pdf.internal.pageSize.getWidth();
+  var pdfHeight=pdf.internal.pageSize.getHeight();
+  var yPos=15;
+  var margin=15;
+  var lineHeight=6;
   
-  // Force OSM
-  var osmForPdf=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap',
-    maxZoom:19,
-    minZoom:0,
-    keepBuffer:4,
-    updateWhenIdle:false
-  });
+  pdf.setFontSize(18);
+  pdf.setTextColor(212,168,83);
+  pdf.text('VespaTimer BETA 2026',pdfWidth/2,yPos,{align:'center'});
+  yPos+=10;
   
-  var layersToRestore=[];
-  map.eachLayer(function(layer){
-    if(layer instanceof L.TileLayer && layer.options.attribution && layer.options.attribution.indexOf('swisstopo')!==-1){
-      layersToRestore.push(layer);
-      map.removeLayer(layer);
-    }
-  });
-  osmForPdf.addTo(map);
+  pdf.setFontSize(10);
+  pdf.setTextColor(100);
+  pdf.text('Export du '+new Date().toLocaleString(),pdfWidth/2,yPos,{align:'center'});
+  yPos+=12;
   
-  // Temporarily replace emoji pot with circleMarker for perfect alignment
-  if(potMarker)map.removeLayer(potMarker);
-  var tempPotMarker=L.circleMarker([surveyLocation.lat,surveyLocation.lng],{
-    radius:10,
-    color:'#d4a853',
-    fillColor:'#d4a853',
-    fillOpacity:1,
-    weight:3
-  }).addTo(map);
+  pdf.setDrawColor(212,168,83);
+  pdf.line(margin,yPos,pdfWidth-margin,yPos);
+  yPos+=8;
   
-  // Fit bounds
-  var allPoints=[L.latLng(surveyLocation.lat,surveyLocation.lng)];
-  for(var i=0;i<hornets.length;i++){
-    var h=hornets[i];
-    if(!h.flights.length)continue;
-    var n=getNestCoords(h);
-    if(n){
-      allPoints.push(L.latLng(n.lat,n.lng));
-      var ovalPad=150/111320;
-      allPoints.push(L.latLng(n.lat+ovalPad,n.lng+ovalPad));
-      allPoints.push(L.latLng(n.lat-ovalPad,n.lng-ovalPad));
-      allPoints.push(L.latLng(n.lat+ovalPad,n.lng-ovalPad));
-      allPoints.push(L.latLng(n.lat-ovalPad,n.lng+ovalPad));
-    }
+  pdf.setFontSize(12);
+  pdf.setTextColor(59,46,30);
+  pdf.text('Pot-à-Mèche',margin,yPos);
+  yPos+=6;
+  pdf.setFontSize(10);
+  pdf.text('Lieu: '+(surveyLocation.name||'Non défini'),margin,yPos);yPos+=5;
+  pdf.text('Coordonnées: '+surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5),margin,yPos);yPos+=5;
+  pdf.text('Inspecteur: '+(inspectorName||'Non défini'),margin,yPos);yPos+=5;
+  if(personalInfo.firstName||personalInfo.lastName){
+    pdf.text('Utilisateur: '+personalInfo.firstName+' '+personalInfo.lastName,margin,yPos);yPos+=5;
   }
-  
-  if(allPoints.length>1){
-    map.fitBounds(L.latLngBounds(allPoints),{padding:[50,50],maxZoom:17});
-  }else{
-    map.setView([surveyLocation.lat,surveyLocation.lng],15);
+  if(notes){
+    var noteLines=pdf.splitTextToSize('Notes: '+notes,pdfWidth-2*margin);
+    pdf.text(noteLines,margin,yPos);
+    yPos+=noteLines.length*lineHeight;
   }
+  yPos+=5;
   
-  // Force map to a fixed height so it fits on one PDF page
-  var mapEl=document.getElementById('map');
-  var originalMapHeight=mapEl.style.height;
+  pdf.setDrawColor(212,168,83);
+  pdf.line(margin,yPos,pdfWidth-margin,yPos);
+  yPos+=8;
   
-  setTimeout(function(){
-    // Set map to fixed height for clean single-page render
-    mapEl.style.height='350px';
-    if(map)map.invalidateSize();
+  pdf.setFontSize(12);
+  pdf.text('Frelons',margin,yPos);
+  yPos+=7;
+  
+  for(var i=0;i<hornetsWithFlights.length;i++){
+    var h=hornetsWithFlights[i];
+    if(yPos>pdfHeight-40){
+      pdf.addPage();
+      yPos=15;
+    }
     
-    setTimeout(function(){
-      var elementsToHide=[];
-      var selectors=['.bottom-bar','#updateBanner','.header'];
-      selectors.forEach(function(sel){
-        var el=document.querySelector(sel);
-        if(el){el.style.display='none';elementsToHide.push(el);}
-      });
-      
-      html2canvas(document.body,{
-        scale:2,
-        useCORS:true,
-        allowTaint:false,
-        backgroundColor:'#f5f2e6',
-        logging:false
-      }).then(function(canvas){
-        // Restore UI
-        elementsToHide.forEach(function(el){el.style.display='';});
-        mapEl.style.height=originalMapHeight;
-        if(map)map.invalidateSize();
-        
-        var imgData=canvas.toDataURL('image/jpeg',0.92);
-        
-        var jsPDFConstructor=window.jspdf?window.jspdf.jsPDF:window.jsPDF;
-        var pdf=new jsPDFConstructor('p','mm','a4');
-        var pdfWidth=pdf.internal.pageSize.getWidth();
-        var pdfHeight=pdf.internal.pageSize.getHeight();
-        
-        var imgWidth=canvas.width;
-        var imgHeight=canvas.height;
-        var ratio=imgWidth/imgHeight;
-        var renderWidth=pdfWidth-10;
-        var renderHeight=renderWidth/ratio;
-        
-        if(renderHeight<=pdfHeight-10){
-          pdf.addImage(imgData,'JPEG',5,5,renderWidth,renderHeight);
-        }else{
-          var pageHeightPx=imgWidth*(pdfHeight-10)/renderWidth;
-          var yOffset=0;
-          var pageNum=0;
-          while(yOffset<imgHeight){
-            var pageCanvas=document.createElement('canvas');
-            pageCanvas.width=imgWidth;
-            pageCanvas.height=Math.min(pageHeightPx,imgHeight-yOffset);
-            var ctx=pageCanvas.getContext('2d');
-            ctx.drawImage(canvas,0,-yOffset);
-            var pageData=pageCanvas.toDataURL('image/jpeg',0.92);
-            if(pageNum>0)pdf.addPage();
-            pdf.addImage(pageData,'JPEG',5,5,renderWidth,pageCanvas.height*renderWidth/imgWidth);
-            yOffset+=pageHeightPx;
-            pageNum++;
-          }
-        }
-        
-        var pdfBlob=pdf.output('blob');
-        var filename='vespatimer_'+new Date().toISOString().slice(0,10)+'.pdf';
-        
-        dl(pdfBlob,filename);
-        
-        showToast('✅ PDF: '+filename);
-        
-        // Restore everything
-        setTimeout(function(){
-          if(osmForPdf)map.removeLayer(osmForPdf);
-          layersToRestore.forEach(function(layer){layer.addTo(map);});
-          if(tempPotMarker)map.removeLayer(tempPotMarker);
-          updatePotMarker();
-          setTimeout(function(){map.fireEvent('moveend');},100);
-        },500);
-      }).catch(function(err){
-        console.error('PDF generation failed:',err);
-        elementsToHide.forEach(function(el){el.style.display='';});
-        mapEl.style.height=originalMapHeight;
-        if(tempPotMarker)map.removeLayer(tempPotMarker);
-        updatePotMarker();
-        showAlert('PDF failed','❌');
-      });
-    },400);
-  },1200);
-}          
-function exportGPX(){closeModal('exportModal');var g='<?xml version="1.0"?><gpx version="1.1"><wpt lat="'+surveyLocation.lat+'" lon="'+surveyLocation.lng+'"><name>Pot</name></wpt>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)g+='<wpt lat="'+n.lat.toFixed(6)+'" lon="'+n.lng.toFixed(6)+'"><name>'+h.name+'</name></wpt>';}g+='</gpx>';dl(new Blob([g],{type:'application/gpx+xml'}),'vespatimer.gpx');}
-function exportKML(){closeModal('exportModal');var k='<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>Pot</name><Point><coordinates>'+surveyLocation.lng+','+surveyLocation.lat+',0</coordinates></Point></Placemark>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)k+='<Placemark><name>'+h.name+'</name><Point><coordinates>'+n.lng.toFixed(6)+','+n.lat.toFixed(6)+',0</coordinates></Point></Placemark>';}k+='</Document></kml>';dl(new Blob([k],{type:'application/vnd.google-earth.kml+xml'}),'vespatimer.kml');}
-function exportHistory(){closeModal('exportModal');var hist=getHist();dl(new Blob([JSON.stringify(hist,null,2)],{type:'application/json'}),'vespatimer_history.json');}
-
-function importData(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasCurrentData){saveHist();}if(d.hornets)hornets=d.hornets.map(function(h){var nh=createHornet(h.name||'Frelon');nh.direction=h.direction||0;nh.flights=h.flights||[];nh.color=h.color||null;return nh;});if(d.surveyLocation)surveyLocation=d.surveyLocation;inspectorName=d.inspectorName||'';notes=d.notes||'';if(d.personalInfo)personalInfo=d.personalInfo;resumedFromIndex=-1;localStorage.setItem('resumed_idx',resumedFromIndex);document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';updatePotMarker();renderAll();saveAll();showToast(t('import_success'));}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
-function importHistory(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(Array.isArray(d)){var existingHist=getHist();var mergedHist=existingHist.slice();for(var i=0;i<d.length;i++){var isDuplicate=false;for(var j=0;j<mergedHist.length;j++){if(d[i].date===mergedHist[j].date&&d[i].location&&mergedHist[j].location&&d[i].location.lat===mergedHist[j].location.lat&&d[i].location.lng===mergedHist[j].location.lng){isDuplicate=true;break;}}if(!isDuplicate)mergedHist.push(d[i]);}mergedHist.sort(function(a,b){return new Date(a.date)-new Date(b.date);});var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;mergedHist=mergedHist.filter(function(e){return new Date(e.date)>new Date(cutoff);});if(mergedHist.length>MAX_HISTORY)mergedHist=mergedHist.slice(-MAX_HISTORY);localStorage.setItem('vh_v2',JSON.stringify(mergedHist));var addedCount=mergedHist.length-existingHist.length;showToast(t('history_imported')+' ('+addedCount+' '+t('new_entries')+')');showHistory();}}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
-
-function openVespafinderModal(){document.getElementById('vespafinderUrl').value='';openModal('vespafinderModal');}
-function parseVespafinderLink(url){
-  try{
-    var match=url.match(/[?&]id=([A-Za-z0-9+/=_-]+)/);
-    if(!match)return null;
-    var base64=match[1].replace(/-/g,'+').replace(/_/g,'/');
-    while(base64.length%4)base64+='=';
-    var json=decodeURIComponent(escape(atob(base64)));
-    var data=JSON.parse(json);
-    return{
-      name:data.n||'Vespafinder',
-      color:data.c||null,
-      lat:data.a,
-      lng:data.o,
-      distance:data.d||0,
-      time:data.t||0,
-      direction:data.r||0,
-      temperature:data.tc||null
-    };
-  }catch(e){return null;}
-}
-function importFromVespafinder(){
-  var url=document.getElementById('vespafinderUrl').value.trim();
-  if(!url){showAlert(t('vespafinder_invalid'),'❌');return;}
-  var data=parseVespafinderLink(url);
-  if(!data){showAlert(t('vespafinder_invalid'),'❌');return;}
-  closeModal('vespafinderModal');
-  var coordsMatch=Math.abs(data.lat-surveyLocation.lat)<0.001&&Math.abs(data.lng-surveyLocation.lng)<0.001;
-  if(!coordsMatch){showVespafinderChoice(data);return;}
-  var existing=hornets.find(function(h){return h.name.toLowerCase()===data.name.toLowerCase()&&h.direction===data.direction;});
-  if(existing){
-    if(data.time>0){existing.flights.push(data.time);if(existing.flights.length>5)existing.flights.shift();}
-    showToast(t('vespafinder_added')+' '+existing.name);
-  }else{
-    if(hornets.length>=MAX_HORNETS){showAlert(t('max_hornets'),'⚠️');return;}
-    var nh=createHornet(data.name);
-    if(data.direction!==undefined)nh.direction=data.direction;
-    if(data.color){var colorMap={red:'#e63946',blue:'#457b9d',green:'#2b9348',yellow:'#ffb703',orange:'#f77f00',purple:'#9b5de5',pink:'#ef476f',black:'#1a1a1a'};nh.color=colorMap[data.color]||nh.color;}
-    if(data.time>0)nh.flights.push(data.time);
-    hornets.push(nh);
-    showToast(t('vespafinder_created'));
+    var avg=0;
+    for(var fi=0;fi<h.flights.length;fi++)avg+=h.flights[fi];
+    avg=avg/h.flights.length;
+    var dist=avg<=30?0:(avg-30)*2.5;
+    
+    pdf.setFontSize(11);
+    pdf.setTextColor(59,46,30);
+    pdf.text((i+1)+'. '+h.name,margin,yPos);
+    yPos+=5;
+    
+    pdf.setFontSize(9);
+    pdf.setTextColor(80);
+    var flightsStr=h.flights.map(function(f){return f+'s';}).join(', ');
+    pdf.text('Vols: '+flightsStr,margin+3,yPos);yPos+=4;
+    pdf.text('Moyenne: '+avg.toFixed(1)+'s | Distance: '+dist.toFixed(0)+'m | Direction: '+h.direction+'°',margin+3,yPos);yPos+=4;
+    
+    var dRad=(h.direction*Math.PI)/180;
+    var nestLat=surveyLocation.lat+(dist/111320)*Math.cos(dRad);
+    var nestLng=surveyLocation.lng+(dist/(111320*Math.cos(surveyLocation.lat*Math.PI/180)))*Math.sin(dRad);
+    if(dist>0){
+      pdf.text('Nid estimé: '+nestLat.toFixed(5)+', '+nestLng.toFixed(5),margin+3,yPos);yPos+=4;
+    }
+    yPos+=4;
   }
-  renderAll();saveAll();if(map)drawAnalysis();
-}
-function showVespafinderChoice(data){
-  document.getElementById('confirmAlertMessage').textContent=t('vespafinder_coords_mismatch');
-  document.getElementById('confirmAlertIcon').textContent='📍';
-  var btnContainer=document.getElementById('confirmAlertButtons');
-  btnContainer.innerHTML='<button class="custom-alert-button" onclick="closeVespafinderChoice(false)" style="background:#888;">'+t('vespafinder_dont_import')+'</button><button class="custom-alert-button" onclick="closeVespafinderChoice(true)">'+t('vespafinder_replace')+'</button>';
-  document.getElementById('confirmAlertOverlay').style.display='flex';
-  window.closeVespafinderChoice=function(replace){
-    document.getElementById('confirmAlertOverlay').style.display='none';
-    btnContainer.innerHTML='<button class="custom-alert-button" onclick="closeConfirmAlert(false)" style="background:#888;">'+t('cancel_btn')+'</button><button class="custom-alert-button" onclick="closeConfirmAlert(true)">'+t('confirm_btn')+'</button>';
-    if(replace){
-      saveHist();
-      resumedFromIndex=-1;
-      localStorage.setItem('resumed_idx',resumedFromIndex);
-      surveyLocation={lat:data.lat,lng:data.lng,name:data.name||'Vespafinder'};
-      document.getElementById('locationInput').value=surveyLocation.name;
-      document.getElementById('locationDisplay').textContent=surveyLocation.name;
-      var nh=createHornet(data.name);
-      if(data.direction!==undefined)nh.direction=data.direction;
-      if(data.color){var colorMap={red:'#e63946',blue:'#457b9d',green:'#2b9348',yellow:'#ffb703',orange:'#f77f00',purple:'#9b5de5',pink:'#ef476f',black:'#1a1a1a'};nh.color=colorMap[data.color]||nh.color;}
-      if(data.time>0)nh.flights.push(data.time);
-      hornets=[nh];
-      updatePotMarker();
-      if(map)map.setView([surveyLocation.lat,surveyLocation.lng],16);
-      renderAll();
-      saveAll();
-      showToast(t('vespafinder_imported'));
-    }
-  };
-}
-
-function resetAll(){showConfirmAlert(t('confirm_reset'),'🔄',function(){saveHist();resumedFromIndex=-1;localStorage.removeItem('resumed_idx');hornets=[createHornet('Frelon 1')];surveyLocation={lat:46.8,lng:6.8,name:''};inspectorName='';notes='';personalInfo={firstName:'',lastName:'',phone:''};collapsedCards={};document.getElementById('locationInput').value='';document.getElementById('locationDisplay').textContent='';document.getElementById('inspectorInput').value='';document.getElementById('notesField').value='';document.getElementById('firstName').value='';document.getElementById('lastName').value='';document.getElementById('phone').value='';localStorage.removeItem('vd_v2');if(map){map.setView([46.8,6.8],16);}updatePotMarker();renderAll();saveAll();showToast(t('new_pot_created'));});}
-
-function changeHornetColor(hornetId){var h=hornets.find(function(x){return x.id===hornetId});if(!h)return;var currentColor=h.color;var html='<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;">';for(var i=0;i<COLORS.length;i++){var isSelected=(currentColor===COLORS[i]);html+='<div onclick="selectColor('+hornetId+',\''+COLORS[i]+'\')" class="color-dot'+(isSelected?' selected':'')+'" style="background:'+COLORS[i]+';" title="'+COLORS[i]+'"></div>';}html+='</div>';document.getElementById('colorPickerContent').innerHTML=html;openModal('colorPickerModal');}
-function selectColor(hornetId,color){var h=hornets.find(function(x){return x.id===hornetId});if(!h)return;for(var i=0;i<hornets.length;i++){var existingColor=hornets[i].color;if(hornets[i].id!==hornetId&&existingColor===color){showAlert(t('color_in_use')+' '+hornets[i].name,'🎨');return;}}h.color=color;closeModal('colorPickerModal');saveAll();renderAll();if(map)drawAnalysis();}
-
-var longPressTimer;
-function startLongPress(hornetId){longPressTimer=setTimeout(function(){changeHornetColor(hornetId);},800);}
-function cancelLongPress(){clearTimeout(longPressTimer);}
-function renderAll(){
-    var container=document.getElementById('hornetContainer');var html='';
-    for(var idx=0;idx<hornets.length;idx++){
-        var h=hornets[idx],avg=getAvg(h),dist=getDist(avg),fc=h.flights.length;
-        var c=h.color||COLORS[idx%COLORS.length];
-        var isCollapsed=collapsedCards[h.id]||false;
-        var timerText='00:00';
-        if(h.timerRunning&&h.timerStart){var s=Math.floor((Date.now()-h.timerStart)/1000);timerText=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
-        var badgeBg=h.timerRunning?'#c47b6b':(fc>0?'#5f7d6b':'#d4a853');
-        var badgeText=h.timerRunning?'⏳ '+t('running'):(fc>0?'✅ '+fc+'/5 '+t('flights_label'):'🆕 '+t('ready'));
-        var nest=getNestCoords(h);
-        var flightsHtml='—';
-        if(fc){var fs=[];for(var fi=0;fi<h.flights.length;fi++){fs.push('<span class="flight-item">'+h.flights[fi]+'s <button class="flight-delete-btn" onclick="event.stopPropagation();deleteFlight('+h.id+','+fi+')" title="'+t('flight_delete')+'">✕</button></span>');}flightsHtml=fs.join(' ');}
-        html+='<div class="hornet-card'+(isCollapsed?' collapsed-card':'')+'">';
-        html+='<div style="width:14px;min-height:100%;background:'+c+';border-radius:16px 0 0 16px;cursor:pointer;flex-shrink:0;" onmousedown="startLongPress('+h.id+')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress('+h.id+')" ontouchend="cancelLongPress()" ontouchcancel="cancelLongPress()"></div>';
-        html+='<div style="flex:1;padding:14px;">';
-        html+='<div class="hornet-header" onclick="toggleCollapse('+h.id+')">';
-        html+='<div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:8px;">';
-        html+='<input class="hornet-name-input" value="'+h.name+'" style="color:'+c+';" onclick="event.stopPropagation()" onchange="updateName('+h.id+',this.value)">';
-        html+='<span style="display:flex;align-items:center;gap:6px;"><span class="badge" style="background:'+badgeBg+'">'+badgeText+'</span><span class="collapse-icon'+(isCollapsed?'':' open')+'">▶</span><button class="delete-hornet-btn" onclick="event.stopPropagation();deleteHornet('+h.id+')" title="'+t('delete')+'">✕</button></span>';
-        html+='</div>';
-        if(isCollapsed){html+='<div class="collapsed-info"><span>🧭 '+h.direction+'°</span><span class="timer-display'+(h.timerRunning?' running':'')+'" style="font-size:1rem;min-width:60px;padding:4px 8px;">'+timerText+'</span></div>';}
-        html+='</div>';
-        html+='<div class="hornet-body'+(isCollapsed?' collapsed':'')+'">';
-        html+='<div class="flex-row" style="margin:6px 0;"><span>🧭 <input type="number" class="dir-input" value="'+h.direction+'" min="0" max="359" onchange="updateDir('+h.id+',this.value)">°</span><span class="timer-display'+(h.timerRunning?' running':'')+'">'+timerText+'</span></div>';
-        html+='<div class="flex-row"><button class="btn-gold btn-sm" onclick="toggleTimer('+h.id+')" '+(fc>=5?'disabled':'')+'>'+(h.timerRunning?'⏹ '+t('stop_btn'):'▶ '+t('start_btn'))+'</button><button class="btn-red btn-sm" onclick="resetTimer('+h.id+')">↺ '+t('reset_btn_label')+'</button></div>';
-        html+='<div style="margin:6px 0;font-size:0.85rem;">📊 '+t('flights_label')+': '+flightsHtml+'</div>';
-        html+='<div style="font-size:0.9rem;">📏 Moy: <strong>'+avg.toFixed(1)+'s</strong> · 🗺️ Dist: <strong>'+dist.toFixed(0)+'m</strong></div>';
-        if(nest){html+='<div style="font-size:0.78rem;">📍 Nid: <strong>'+nest.lat.toFixed(5)+', '+nest.lng.toFixed(5)+'</strong></div>';}
-        html+='<div style="background:#f9f4e8;border-radius:12px;padding:8px;margin-top:6px;"><span style="font-size:0.8rem;">✍️ '+t('manual_time')+':</span><div class="flex-row" style="margin-top:4px;"><input type="number" id="mt_'+h.id+'" style="width:60px;text-align:center;padding:4px;" placeholder="'+t('manual_time_placeholder')+'" min="1"><button class="btn-gold btn-sm" onclick="addManualTime('+h.id+')" '+(fc>=5?'disabled':'')+'>➕ '+t('add_manual')+'</button></div></div>';
-        html+='</div></div></div>';
-    }
-    container.innerHTML=html;
-    document.getElementById('locationDisplay').textContent=surveyLocation.name||surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);
-    document.getElementById('datetime').textContent=new Date().toLocaleString();
-    document.getElementById('inspectorInput').value=inspectorName;
-    document.getElementById('notesField').value=notes;
-    document.getElementById('liveBanner').style.display=hornets.some(function(h){return h.timerRunning})?'block':'none';
-    var hwf=hornets.filter(function(h){return h.flights.length>0});
-    var statsDiv=document.getElementById('statsContent');
-    if(!hwf.length){statsDiv.innerHTML=t('no_flights_stats');}
-    else{
-        var sh='';
-        for(var si=0;si<hwf.length;si++){
-            var shh=hwf[si];
-            var sc=shh.color||COLORS[hornets.indexOf(shh)%COLORS.length];
-            sh+='<span style="color:'+sc+';">● '+shh.name+': '+getAvg(shh).toFixed(1)+'s</span><br>';
-        }
-        var ga=0;
-        for(var gi=0;gi<hwf.length;gi++)ga+=getAvg(hwf[gi]);
-        ga/=hwf.length;
-        sh+='<strong>📈 Moy. globale: '+ga.toFixed(1)+'s</strong>';
-        statsDiv.innerHTML=sh;
-    }
-    saveAll();
-    if(map)drawAnalysis();
-}
-
-var timerInterval=null;
-function startTimerInterval(){if(timerInterval)return;timerInterval=setInterval(function(){var anyRunning=false;for(var i=0;i<hornets.length;i++){var h=hornets[i];if(h.timerRunning&&h.timerStart){anyRunning=true;var s=Math.floor((Date.now()-h.timerStart)/1000);var txt=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');var cards=document.querySelectorAll('.hornet-card');if(cards[i]){var displays=cards[i].querySelectorAll('.timer-display');for(var d=0;d<displays.length;d++){displays[d].textContent=txt;}}}}document.getElementById('liveBanner').style.display=anyRunning?'block':'none';if(!anyRunning){stopTimerInterval();}},500);}
-function stopTimerInterval(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;}}
-
-function updateDateTime(){document.getElementById('datetime').textContent=new Date().toLocaleString();}
-setInterval(updateDateTime,1000);
-function closeAbout(){var wasFirstLaunch=firstLaunchXToApp;firstLaunchXToApp=false;closeModal('aboutModal');if(!wasFirstLaunch){openModal('optionsModal');}}
-
-function showUpdateBanner(reg){
-  var banner=document.getElementById('updateBanner');
-  banner.innerHTML='🔄 '+t('update_available')+' <button onclick="applyUpdate(this)" style="background:#d4a853;color:white;border:none;border-radius:15px;padding:6px 12px;font-weight:bold;cursor:pointer;margin-left:8px;">'+t('update_btn')+'</button>';
-  banner.style.display='flex';
-  window.applyUpdate=function(btn){
-    btn.textContent=t('updating');
-    btn.disabled=true;
-    if(reg.waiting){reg.waiting.postMessage('SKIP_WAITING');}
-  };
-}
-
-window.addEventListener('beforeunload',function(e){var hasActiveTimers=hornets.some(function(h){return h.timerRunning});var hasUnsavedData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasActiveTimers||hasUnsavedData){e.preventDefault();e.returnValue='Des données non sauvegardées existent!';return'Des données non sauvegardées existent!';}});
-
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('service-worker.js').then(function(reg){
-    setInterval(function(){reg.update();},3600000);
-    reg.addEventListener('updatefound',function(){
-      var newWorker=reg.installing;
-      newWorker.addEventListener('statechange',function(){
-        if(newWorker.state==='installed'&&navigator.serviceWorker.controller){
-          showUpdateBanner(reg);
-        }
-      });
-    });
-    if(reg.waiting&&navigator.serviceWorker.controller){
-      showUpdateBanner(reg);
-    }
-  }).catch(function(){});
-  var refreshing=false;
-  navigator.serviceWorker.addEventListener('controllerchange',function(){
-    if(!refreshing){refreshing=true;window.location.reload();}
-  });
-}
-
-var isPWA=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
-var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
-if(isPWA){
-  document.addEventListener('contextmenu',function(e){e.preventDefault();});
-  document.addEventListener('keydown',function(e){if(e.key==='F5'||(e.ctrlKey&&e.key==='r')||(e.metaKey&&e.key==='r')){e.preventDefault();e.stopPropagation();}});
-  if(isIOS){
-    document.addEventListener('touchmove',function(e){
-      if(e.target.closest('.modal')||e.target.closest('#historyPanel')){return;}
-      if(window.scrollY===0){e.preventDefault();}
-    },{passive:false});
+  
+  yPos+=5;
+  if(yPos>pdfHeight-30){
+    pdf.addPage();
+    yPos=15;
   }
-}
-document.addEventListener('gesturestart',function(e){e.preventDefault();});
-document.addEventListener('gesturechange',function(e){e.preventDefault();});
-
-function handleUrlParams(){
-  var params=new URLSearchParams(window.location.search);
-  var action=params.get('action');
-  if(action==='export'){openModal('exportModal');}
-  else if(action==='map'){var mapCard=document.querySelector('.card:nth-of-type(3)');if(mapCard)mapCard.scrollIntoView({behavior:'smooth'});}
-}
-
-function checkFirstLaunch(){
-  var hasSeenWelcome=localStorage.getItem('welcome_seen')==='true';
-  if(!hasSeenWelcome){
-    localStorage.setItem('welcome_seen','true');
-    firstLaunchXToApp=true;
-    setTimeout(function(){openModal('aboutModal');},600);
+  pdf.setFontSize(12);
+  pdf.setTextColor(59,46,30);
+  pdf.text('Statistiques',margin,yPos);
+  yPos+=6;
+  pdf.setFontSize(10);
+  for(var si=0;si<hornetsWithFlights.length;si++){
+    var sh=hornetsWithFlights[si];
+    var savg=0;
+    for(var sf=0;sf<sh.flights.length;sf++)savg+=sh.flights[sf];
+    savg=savg/sh.flights.length;
+    pdf.text('• '+sh.name+': '+savg.toFixed(1)+'s',margin+3,yPos);
+    yPos+=5;
   }
+  
+  var pdfBlob=pdf.output('blob');
+  var filename='vespatimer_beta2026_'+new Date().toISOString().slice(0,10)+'.pdf';
+  sharedExport(pdfBlob,filename,'application/pdf');
+  showToast('✅ '+filename);
 }
 
-function boot(){
-  loadAll();
-  updateNotifButton();
-  applyTranslations();
-  renderAll();
-  setTimeout(function(){
-    initMap();
-    setTimeout(function(){if(map)drawAnalysis();},800);
-  },500);
-  handleUrlParams();
-  updateDateTime();
-  checkFirstLaunch();
+function checkBetaShutdown(){
+  document.getElementById('betaShutdownMessage').textContent=t('beta_shutdown_message');
 }
-if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
+
+checkBetaShutdown();
 </script>
 </body>
 </html>

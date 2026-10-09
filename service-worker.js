@@ -1,7 +1,7 @@
 // VespaTimer v2.0 - Service Worker
 // IMPORTANT: Change CACHE_NAME on every deploy to trigger updates
 
-const CACHE_NAME = 'vespatimer-v2.0.0.0.0.5';
+const CACHE_NAME = 'vespatimer-v2.0.0.0.0.0';
 const MAP_TILE_CACHE = 'vespatimer-tiles-v1';
 
 const ASSETS_TO_CACHE = [

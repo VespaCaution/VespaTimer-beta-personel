@@ -551,32 +551,43 @@ function drawAnalysis(histData){
                                                                                               }
 
 function showHistory(){var hist=getHist();var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;var recent=hist.filter(function(e){return new Date(e.date)>new Date(cutoff);});drawAnalysis(recent);var panel=document.getElementById('historyPanel');panel.style.display='block';panel.innerHTML='<div style="font-size:0.8rem;color:#c47b6b;margin-bottom:8px;">'+t('history_limit')+' ('+recent.length+'/'+MAX_HISTORY+')</div>';if(recent.length){var html='';var startIdx=hist.length-recent.length;for(var i=recent.length-1;i>=0;i--){var e=recent[i];var actualIndex=startIdx+i;html+='<div class="history-item"><strong>📅 '+new Date(e.date).toLocaleDateString()+'</strong><br>🐝 '+(e.hornets?e.hornets.length:0)+' frelons | '+(e.hornets?e.hornets.map(function(h){return h.name}).join(', '):'?')+'<br>📍 '+(e.location&&e.location.name?e.location.name:'?')+'<div class="history-actions"><button class="btn-gold btn-sm" onclick="resumeHistEntryByIndex('+actualIndex+')">🔄 '+t('hist_resume')+'</button><button class="btn-red btn-sm" onclick="deleteHistEntry('+actualIndex+')">🗑️ '+t('hist_delete')+'</button></div></div>';}panel.innerHTML+=html;}else{panel.innerHTML+='<div class="history-item">📭 '+t('history_empty')+'</div>';}}
-var deferredPrompt;
-var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+var deferredPrompt=null;
+var isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
 var isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
 
+function showInstallButton(){
+  var btn=document.getElementById('installBtn2');
+  if(btn){btn.style.display='block';}
+}
+
+function hideInstallButton(){
+  var btn=document.getElementById('installBtn2');
+  if(btn){btn.style.display='none';}
+}
+
+// Android/Desktop Chrome
 window.addEventListener('beforeinstallprompt',function(e){
   e.preventDefault();
   deferredPrompt=e;
-  if(!isStandalone){
-    document.getElementById('installBtn2').style.display='block';
-  }
+  if(!isStandalone){showInstallButton();}
 });
 
-// On iOS, show button after 1.5s if not already installed
-if(isIOS&&!isStandalone){
-  setTimeout(function(){
-    document.getElementById('installBtn2').style.display='block';
-  },1500);
+// iOS: show the button after boot, if not already installed
+function checkIOSInstall(){
+  if(isIOS&&!isStandalone){
+    setTimeout(showInstallButton,1000);
+    setTimeout(showInstallButton,3000);
+    setTimeout(showInstallButton,6000);
+  }else{
+    hideInstallButton();
+  }
 }
 
-// Hide install button if already standalone
-if(isStandalone){
-  setTimeout(function(){
-    var btn=document.getElementById('installBtn2');
-    if(btn)btn.style.display='none';
-  },100);
-}
+// Hide after successful install
+window.addEventListener('appinstalled',function(){
+  hideInstallButton();
+  deferredPrompt=null;
+});
 
 function installPWA(){
   if(isIOS){
@@ -588,7 +599,7 @@ function installPWA(){
     deferredPrompt.userChoice.then(function(result){
       deferredPrompt=null;
       if(result.outcome==='accepted'){
-        document.getElementById('installBtn2').style.display='none';
+        hideInstallButton();
       }
     });
   }else{
@@ -978,6 +989,7 @@ function boot(){
   handleUrlParams();
   updateDateTime();
   checkFirstLaunch();
+  checkIOSInstall();
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>

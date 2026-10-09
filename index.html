@@ -551,61 +551,12 @@ function drawAnalysis(histData){
                                                                                               }
 
 function showHistory(){var hist=getHist();var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;var recent=hist.filter(function(e){return new Date(e.date)>new Date(cutoff);});drawAnalysis(recent);var panel=document.getElementById('historyPanel');panel.style.display='block';panel.innerHTML='<div style="font-size:0.8rem;color:#c47b6b;margin-bottom:8px;">'+t('history_limit')+' ('+recent.length+'/'+MAX_HISTORY+')</div>';if(recent.length){var html='';var startIdx=hist.length-recent.length;for(var i=recent.length-1;i>=0;i--){var e=recent[i];var actualIndex=startIdx+i;html+='<div class="history-item"><strong>📅 '+new Date(e.date).toLocaleDateString()+'</strong><br>🐝 '+(e.hornets?e.hornets.length:0)+' frelons | '+(e.hornets?e.hornets.map(function(h){return h.name}).join(', '):'?')+'<br>📍 '+(e.location&&e.location.name?e.location.name:'?')+'<div class="history-actions"><button class="btn-gold btn-sm" onclick="resumeHistEntryByIndex('+actualIndex+')">🔄 '+t('hist_resume')+'</button><button class="btn-red btn-sm" onclick="deleteHistEntry('+actualIndex+')">🗑️ '+t('hist_delete')+'</button></div></div>';}panel.innerHTML+=html;}else{panel.innerHTML+='<div class="history-item">📭 '+t('history_empty')+'</div>';}}
-var deferredPrompt=null;
-var isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
-var isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+var deferredPrompt;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;document.getElementById('installBtn2').style.display='block';});
+var isApple=/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+if(isApple){setTimeout(function(){document.getElementById('installBtn2').style.display='block';},2000);}
+function installPWA(){var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);if(isIOS){showAlert('📱 iOS: Dans Safari, appuyez sur le bouton Partager (carré avec flèche) en bas de l\'écran, puis choisissez "Sur l\'écran d\'accueil"','📱');return;}if(deferredPrompt){deferredPrompt.prompt();deferredPrompt.userChoice.then(function(result){deferredPrompt=null;});}}
 
-function showInstallButton(){
-  var btn=document.getElementById('installBtn2');
-  if(btn){btn.style.display='block';}
-}
-
-function hideInstallButton(){
-  var btn=document.getElementById('installBtn2');
-  if(btn){btn.style.display='none';}
-}
-
-// Android/Desktop Chrome
-window.addEventListener('beforeinstallprompt',function(e){
-  e.preventDefault();
-  deferredPrompt=e;
-  if(!isStandalone){showInstallButton();}
-});
-
-// iOS: show the button after boot, if not already installed
-function checkIOSInstall(){
-  if(isIOS&&!isStandalone){
-    setTimeout(showInstallButton,1000);
-    setTimeout(showInstallButton,3000);
-    setTimeout(showInstallButton,6000);
-  }else{
-    hideInstallButton();
-  }
-}
-
-// Hide after successful install
-window.addEventListener('appinstalled',function(){
-  hideInstallButton();
-  deferredPrompt=null;
-});
-
-function installPWA(){
-  if(isIOS){
-    showAlert('📱 Pour installer VespaTimer sur iOS :\n\n1. Appuyez sur le bouton Partager (carré avec flèche ⬆️) en bas de l\'écran\n\n2. Faites défiler et appuyez sur "Sur l\'écran d\'accueil"\n\n3. Appuyez sur "Ajouter" en haut à droite\n\nPour les notifications, ouvrez ensuite l\'app depuis l\'écran d\'accueil.','📱');
-    return;
-  }
-  if(deferredPrompt){
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(function(result){
-      deferredPrompt=null;
-      if(result.outcome==='accepted'){
-        hideInstallButton();
-      }
-    });
-  }else{
-    showAlert('Utilisez le menu de votre navigateur pour installer l\'application','📱');
-  }
-}
 function dl(b,n){var file=new File([b],n,{type:b.type||'application/octet-stream'});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:n}).then(function(){sendNotification(t('export_success'),n);}).catch(function(err){if(err.name!=='AbortError'){downloadFile(b,n);}});}else{downloadFile(b,n);}}
 function downloadFile(b,n){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);sendNotification(t('export_success'),n);}
 
@@ -989,7 +940,6 @@ function boot(){
   handleUrlParams();
   updateDateTime();
   checkFirstLaunch();
-  checkIOSInstall();
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>

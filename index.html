@@ -929,34 +929,41 @@ function checkFirstLaunch(){
 }
 function handleFileLaunch(fileHandle){
   fileHandle.getFile().then(function(file){
-    var reader=new FileReader();
-    reader.onload=function(ev){
-      try{
-        var d=JSON.parse(ev.target.result);
-        var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;
-        if(hasCurrentData){saveHist();}
-        if(d.hornets)hornets=d.hornets.map(function(h){var nh=createHornet(h.name||'Frelon');nh.direction=h.direction||0;nh.flights=h.flights||[];nh.color=h.color||null;return nh;});
-        if(d.surveyLocation)surveyLocation=d.surveyLocation;
-        inspectorName=d.inspectorName||'';
-        notes=d.notes||'';
-        if(d.personalInfo)personalInfo=d.personalInfo;
-        resumedFromIndex=-1;
-        localStorage.setItem('resumed_idx',resumedFromIndex);
-        document.getElementById('firstName').value=personalInfo.firstName||'';
-        document.getElementById('lastName').value=personalInfo.lastName||'';
-        document.getElementById('phone').value=personalInfo.phone||'';
-        updatePotMarker();
-        renderAll();
-        saveAll();
-        showToast(t('import_success')+' ('+file.name+')');
-      }catch(ex){
-        showAlert(t('import_error'),'❌');
-      }
-    };
-    reader.readAsText(file);
+    return file.text();
+  }).then(function(text){
+    try{
+      var d=JSON.parse(text);
+      var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;
+      if(hasCurrentData){saveHist();}
+      if(d.hornets)hornets=d.hornets.map(function(h){
+        var nh=createHornet(h.name||'Frelon');
+        nh.direction=h.direction||0;
+        nh.flights=h.flights||[];
+        nh.color=h.color||null;
+        return nh;
+      });
+      if(d.surveyLocation)surveyLocation=d.surveyLocation;
+      inspectorName=d.inspectorName||'';
+      notes=d.notes||'';
+      if(d.personalInfo)personalInfo=d.personalInfo;
+      resumedFromIndex=-1;
+      localStorage.setItem('resumed_idx',resumedFromIndex);
+      document.getElementById('firstName').value=personalInfo.firstName||'';
+      document.getElementById('lastName').value=personalInfo.lastName||'';
+      document.getElementById('phone').value=personalInfo.phone||'';
+      updatePotMarker();
+      renderAll();
+      saveAll();
+      showToast(t('import_success'));
+    }catch(ex){
+      console.error('File launch parse error:',ex);
+      showAlert(t('import_error'),'❌');
+    }
+  }).catch(function(err){
+    console.error('File launch error:',err);
+    showAlert('Impossible de lire le fichier','❌');
   });
 }
-
 function boot(){
   loadAll();
   updateNotifButton();
@@ -971,7 +978,7 @@ function boot(){
   checkFirstLaunch();
   checkIOSInstall();
   
-  // File Handling API — when app is opened with a file
+  // File Handling API — fires when app opened with a .json file
   if('launchQueue' in window){
     window.launchQueue.setConsumer(function(launchParams){
       if(launchParams.files && launchParams.files.length){

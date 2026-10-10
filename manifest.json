@@ -20,31 +20,6 @@
     { "name": "Export/Import", "short_name": "Export", "url": "./index.html?action=export", "icons": [{ "src": "icon.png", "sizes": "96x96" }] },
     { "name": "Carte", "short_name": "Carte", "url": "./index.html?action=map", "icons": [{ "src": "icon.png", "sizes": "96x96" }] }
   ],
-  "file_handlers": [
-    {
-      "action": "./index.html",
-      "accept": {
-        "application/json": [".json"]
-      },
-      "launch_type": "single-client"
-    }
-  ],
-  "share_target": {
-    "action": "./index.html?share-target",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url",
-      "files": [
-        {
-          "name": "sharedFile",
-          "accept": ["application/json", ".json"]
-        }
-      ]
-    }
-  },
   "lang": "fr",
   "categories": ["utilities", "productivity", "tools"],
   "launch_handler": { "client_mode": "navigate-existing" },

@@ -927,74 +927,7 @@ function checkFirstLaunch(){
     setTimeout(function(){openModal('aboutModal');},600);
   }
 }
-// === File Handling API (Open with) ===
-function handleFileLaunch(fileHandle){
-  fileHandle.getFile().then(function(file){
-    return file.text();
-  }).then(function(text){
-    processImportedJSON(text);
-  }).catch(function(err){
-    console.error('File launch error:',err);
-    showAlert('Impossible de lire le fichier','❌');
-  });
-}
 
-// === Web Share Target (Share to) ===
-async function checkSharedFile(){
-  var params = new URLSearchParams(window.location.search);
-  if (!params.has('share-received')) return;
-  
-  try {
-    var cache = await caches.open('vespatimer-shared');
-    var response = await cache.match('shared-file.json');
-    
-    if (response) {
-      var text = await response.text();
-      await cache.delete('shared-file.json');
-      processImportedJSON(text);
-    } else {
-      showAlert('Aucun fichier reçu','⚠️');
-    }
-  } catch(err) {
-    console.error('Shared file error:',err);
-    showAlert('Erreur lors de la lecture du fichier partagé','❌');
-  }
-  
-  // Clean the URL
-  history.replaceState({}, '', './index.html');
-}
-
-// === Shared import logic ===
-function processImportedJSON(text){
-  try{
-    var d=JSON.parse(text);
-    var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;
-    if(hasCurrentData){saveHist();}
-    if(d.hornets)hornets=d.hornets.map(function(h){
-      var nh=createHornet(h.name||'Frelon');
-      nh.direction=h.direction||0;
-      nh.flights=h.flights||[];
-      nh.color=h.color||null;
-      return nh;
-    });
-    if(d.surveyLocation)surveyLocation=d.surveyLocation;
-    inspectorName=d.inspectorName||'';
-    notes=d.notes||'';
-    if(d.personalInfo)personalInfo=d.personalInfo;
-    resumedFromIndex=-1;
-    localStorage.setItem('resumed_idx',resumedFromIndex);
-    document.getElementById('firstName').value=personalInfo.firstName||'';
-    document.getElementById('lastName').value=personalInfo.lastName||'';
-    document.getElementById('phone').value=personalInfo.phone||'';
-    updatePotMarker();
-    renderAll();
-    saveAll();
-    showToast(t('import_success'));
-  }catch(ex){
-    console.error('Import parse error:',ex);
-    showAlert(t('import_error'),'❌');
-  }
-}
 function boot(){
   loadAll();
   updateNotifButton();
@@ -1007,18 +940,8 @@ function boot(){
   handleUrlParams();
   updateDateTime();
   checkFirstLaunch();
-  checkIOSInstall();
-  checkSharedFile();
-  
-  // File Handling API — "Open with" (ChromeOS / desktop)
-  if('launchQueue' in window){
-    window.launchQueue.setConsumer(function(launchParams){
-      if(launchParams.files && launchParams.files.length){
-        handleFileLaunch(launchParams.files[0]);
-      }
-    });
-  }
 }
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>
 </body>
 </html>

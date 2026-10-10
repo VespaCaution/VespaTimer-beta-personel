@@ -25,7 +25,8 @@
       "action": "./index.html",
       "accept": {
         "application/json": [".json"]
-      }
+      },
+      "launch_type": "single-client"
     }
   ],
   "lang": "fr",

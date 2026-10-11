@@ -1074,7 +1074,9 @@ function checkFirstLaunch(){
   if(!hasSeenWelcome){
     localStorage.setItem('welcome_seen','true');
     firstLaunchXToApp=true;
-    setTimeout(function(){openModal('aboutModal');},1200);
+    setTimeout(function(){
+      openModal('aboutModal');
+    },1500);
   }
 }
 
@@ -1130,7 +1132,16 @@ function checkFirstLaunchAfterSite(){
 }
 
 function checkFirstPWAOpen(){
-  if(isStandaloneApp){
+  // More reliable standalone detection
+  var standalone = window.matchMedia('(display-mode: standalone)').matches 
+                   || window.matchMedia('(display-mode: fullscreen)').matches
+                   || window.matchMedia('(display-mode: minimal-ui)').matches
+                   || window.navigator.standalone === true;
+  
+  isStandaloneApp = standalone;
+  
+  if(standalone){
+    // PWA mode: first-ever PWA open → show site
     var hasSeenSite=localStorage.getItem('has_seen_site')==='true';
     if(!hasSeenSite){
       localStorage.setItem('has_seen_site','true');
@@ -1138,9 +1149,11 @@ function checkFirstPWAOpen(){
     }
     return;
   }
-  var hash=window.location.hash.replace('#','');
-  if(hash==='site')return;
-  setTimeout(function(){openSubPage('siteScreen');},300);
+  
+  // Browser/link mode: ALWAYS open site
+  setTimeout(function(){
+    openSubPage('siteScreen');
+  },300);
 }
 
 // ============ SITE TABS ============
@@ -1271,6 +1284,9 @@ function boot(){
   updateDateTime();
   checkIOSInstall();
   checkFirstPWAOpen();
+  // Run first-launch check in BOTH modes, but timing differs:
+  // PWA → About modal on app open
+  // Browser → About modal only after user clicks "Ouvrir VespaTimer"
   if(isStandaloneApp){
     checkFirstLaunch();
   }

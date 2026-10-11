@@ -128,8 +128,8 @@
 <div id="siteScreen" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);z-index:99998;overflow-y:auto;padding:20px;">
     <div style="max-width:700px;margin:0 auto;background:var(--card);border-radius:20px;box-shadow:0 4px 20px rgba(0,0,0,0.1);position:relative;overflow:hidden;">
         <div style="background:var(--gold);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;color:white;">
-            <div style="font-size:1.3rem;font-weight:700;">🐝 VespaTimer</div>
-            <button onclick="closeSubPage()" style="background:none;border:none;color:white;font-size:1.5rem;cursor:pointer;padding:4px 8px;">✕</button>
+    <div style="font-size:1.3rem;font-weight:700;">🐝 VespaTimer</div>
+    <button id="siteCloseBtn" onclick="closeSubPage()" style="background:none;border:none;color:white;font-size:1.5rem;cursor:pointer;padding:4px 8px;">✕</button>
         </div>
         <div style="display:flex;background:#fefaf2;border-bottom:2px solid var(--border);overflow-x:auto;">
             <button class="site-tab active" data-tab="home" onclick="showSiteTab('home')" style="flex:1;min-width:70px;padding:12px 8px;border:none;background:none;color:var(--text);font-weight:600;cursor:pointer;font-size:0.85rem;border-bottom:3px solid transparent;">Accueil</button>
@@ -721,153 +721,142 @@ function dl(b,n){var file=new File([b],n,{type:b.type||'application/octet-stream
 function downloadFile(b,n){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);sendNotification(t('export_success'),n);}
 
 function exportJSON(){closeModal('exportModal');var data={version:'2.0',hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo};dl(new Blob([JSON.stringify(data)],{type:'application/json'}),'vespatimer.json');}
-function exportPDF(){
-  closeModal('exportModal');
-  if(!map){
-    showAlert('Map not ready','⚠️');
-    return;
-  }
-  
-  showToast('⏳ Génération du PDF...');
-  
-  // Force OSM
-  var osmForPdf=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap',
-    maxZoom:19,
-    minZoom:0,
-    keepBuffer:4,
-    updateWhenIdle:false
-  });
-  
-  var layersToRestore=[];
-  map.eachLayer(function(layer){
-    if(layer instanceof L.TileLayer && layer.options.attribution && layer.options.attribution.indexOf('swisstopo')!==-1){
-      layersToRestore.push(layer);
-      map.removeLayer(layer);
+function exportPDF() {
+    closeModal('exportModal');
+    if (!map) {
+        setTimeout(function() { window.print(); }, 400);
+        sendNotification(t('export_success'), 'vespatimer.pdf');
+        return;
     }
-  });
-  osmForPdf.addTo(map);
-  
-  // Temporarily replace emoji pot with circleMarker for perfect alignment
-  if(potMarker)map.removeLayer(potMarker);
-  var tempPotMarker=L.circleMarker([surveyLocation.lat,surveyLocation.lng],{
-    radius:10,
-    color:'#d4a853',
-    fillColor:'#d4a853',
-    fillOpacity:1,
-    weight:3
-  }).addTo(map);
-  
-  // Fit bounds
-  var allPoints=[L.latLng(surveyLocation.lat,surveyLocation.lng)];
-  for(var i=0;i<hornets.length;i++){
-    var h=hornets[i];
-    if(!h.flights.length)continue;
-    var n=getNestCoords(h);
-    if(n){
-      allPoints.push(L.latLng(n.lat,n.lng));
-      var ovalPad=150/111320;
-      allPoints.push(L.latLng(n.lat+ovalPad,n.lng+ovalPad));
-      allPoints.push(L.latLng(n.lat-ovalPad,n.lng-ovalPad));
-      allPoints.push(L.latLng(n.lat+ovalPad,n.lng-ovalPad));
-      allPoints.push(L.latLng(n.lat-ovalPad,n.lng+ovalPad));
-    }
-  }
-  
-  if(allPoints.length>1){
-    map.fitBounds(L.latLngBounds(allPoints),{padding:[50,50],maxZoom:17});
-  }else{
-    map.setView([surveyLocation.lat,surveyLocation.lng],15);
-  }
-  
-  // Force map to a fixed height so it fits on one PDF page
-  var mapEl=document.getElementById('map');
-  var originalMapHeight=mapEl.style.height;
-  
-  setTimeout(function(){
-    // Set map to fixed height for clean single-page render
-    mapEl.style.height='350px';
-    if(map)map.invalidateSize();
     
-    setTimeout(function(){
-      var elementsToHide=[];
-      var selectors=['.bottom-bar','#updateBanner','.header'];
-      selectors.forEach(function(sel){
-        var el=document.querySelector(sel);
-        if(el){el.style.display='none';elementsToHide.push(el);}
-      });
-      
-      html2canvas(document.body,{
-        scale:2,
-        useCORS:true,
-        allowTaint:false,
-        backgroundColor:'#f5f2e6',
-        logging:false
-      }).then(function(canvas){
-        // Restore UI
-        elementsToHide.forEach(function(el){el.style.display='';});
-        mapEl.style.height=originalMapHeight;
-        if(map)map.invalidateSize();
-        
-        var imgData=canvas.toDataURL('image/jpeg',0.92);
-        
-        var jsPDFConstructor=window.jspdf?window.jspdf.jsPDF:window.jsPDF;
-        var pdf=new jsPDFConstructor('p','mm','a4');
-        var pdfWidth=pdf.internal.pageSize.getWidth();
-        var pdfHeight=pdf.internal.pageSize.getHeight();
-        
-        var imgWidth=canvas.width;
-        var imgHeight=canvas.height;
-        var ratio=imgWidth/imgHeight;
-        var renderWidth=pdfWidth-10;
-        var renderHeight=renderWidth/ratio;
-        
-        if(renderHeight<=pdfHeight-10){
-          pdf.addImage(imgData,'JPEG',5,5,renderWidth,renderHeight);
-        }else{
-          var pageHeightPx=imgWidth*(pdfHeight-10)/renderWidth;
-          var yOffset=0;
-          var pageNum=0;
-          while(yOffset<imgHeight){
-            var pageCanvas=document.createElement('canvas');
-            pageCanvas.width=imgWidth;
-            pageCanvas.height=Math.min(pageHeightPx,imgHeight-yOffset);
-            var ctx=pageCanvas.getContext('2d');
-            ctx.drawImage(canvas,0,-yOffset);
-            var pageData=pageCanvas.toDataURL('image/jpeg',0.92);
-            if(pageNum>0)pdf.addPage();
-            pdf.addImage(pageData,'JPEG',5,5,renderWidth,pageCanvas.height*renderWidth/imgWidth);
-            yOffset+=pageHeightPx;
-            pageNum++;
-          }
+    // Force OSM for PDF
+    var osmForPdf = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19, minZoom: 0, keepBuffer: 4, updateWhenIdle: false
+    });
+    var layersToRestore = [];
+    map.eachLayer(function(layer) {
+        if (layer instanceof L.TileLayer && layer.options.attribution && layer.options.attribution.indexOf('swisstopo') !== -1) {
+            layersToRestore.push(layer);
+            map.removeLayer(layer);
         }
+    });
+    osmForPdf.addTo(map);
+    
+    // Temporarily swap emoji pot for a centered circleMarker (SVG aligns perfectly)
+    if (potMarker) map.removeLayer(potMarker);
+    var tempPotMarker = L.circleMarker([surveyLocation.lat, surveyLocation.lng], {
+        radius: 10, color: '#d4a853', fillColor: '#d4a853', fillOpacity: 1, weight: 3
+    }).addTo(map);
+    
+    // Calculate proper bounds INCLUDING oval extents
+    var allPoints = [L.latLng(surveyLocation.lat, surveyLocation.lng)];
+    for (var i = 0; i < hornets.length; i++) {
+        var h = hornets[i];
+        if (!h.flights.length) continue;
+        var n = getNestCoords(h);
+        if (n) {
+            allPoints.push(L.latLng(n.lat, n.lng));
+            var ovalPad = 150 / 111320;
+            allPoints.push(L.latLng(n.lat + ovalPad, n.lng + ovalPad));
+            allPoints.push(L.latLng(n.lat - ovalPad, n.lng - ovalPad));
+            allPoints.push(L.latLng(n.lat + ovalPad, n.lng - ovalPad));
+            allPoints.push(L.latLng(n.lat - ovalPad, n.lng + ovalPad));
+        }
+    }
+    
+    // Fit bounds with extra padding so nothing is cut off
+    if (allPoints.length > 1) {
+        map.fitBounds(L.latLngBounds(allPoints), { padding: [80, 80], maxZoom: 16 });
+    } else {
+        map.setView([surveyLocation.lat, surveyLocation.lng], 15);
+    }
+    
+    // Wait for the map to fully re-render, then capture
+    setTimeout(function() {
+        // Freeze the map size to prevent layout shifts
+        var mapEl = document.getElementById('map');
+        var originalHeight = mapEl.style.height;
+        mapEl.style.height = '350px';
+        if (map) map.invalidateSize();
         
-        var pdfBlob=pdf.output('blob');
-        var filename='vespatimer_'+new Date().toISOString().slice(0,10)+'.pdf';
-        
-        dl(pdfBlob,filename);
-        
-        showToast('✅ PDF: '+filename);
-        
-        // Restore everything
-        setTimeout(function(){
-          if(osmForPdf)map.removeLayer(osmForPdf);
-          layersToRestore.forEach(function(layer){layer.addTo(map);});
-          if(tempPotMarker)map.removeLayer(tempPotMarker);
-          updatePotMarker();
-          setTimeout(function(){map.fireEvent('moveend');},100);
-        },500);
-      }).catch(function(err){
-        console.error('PDF generation failed:',err);
-        elementsToHide.forEach(function(el){el.style.display='';});
-        mapEl.style.height=originalMapHeight;
-        if(tempPotMarker)map.removeLayer(tempPotMarker);
-        updatePotMarker();
-        showAlert('PDF failed','❌');
-      });
-    },400);
-  },1200);
-}          
+        setTimeout(function() {
+            // Hide UI elements for clean PDF
+            var elementsToHide = [];
+            var selectors = ['.bottom-bar', '#updateBanner', '.header'];
+            selectors.forEach(function(sel) {
+                var el = document.querySelector(sel);
+                if (el) { el.style.display = 'none'; elementsToHide.push(el); }
+            });
+            
+            html2canvas(document.body, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: '#f5f2e6',
+                logging: false
+            }).then(function(canvas) {
+                // Restore UI
+                elementsToHide.forEach(function(el) { el.style.display = ''; });
+                mapEl.style.height = originalHeight;
+                if (map) map.invalidateSize();
+                
+                var imgData = canvas.toDataURL('image/jpeg', 0.92);
+                var jsPDFConstructor = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
+                var pdf = new jsPDFConstructor('p', 'mm', 'a4');
+                var pdfWidth = pdf.internal.pageSize.getWidth();
+                var pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                var imgWidth = canvas.width;
+                var imgHeight = canvas.height;
+                var ratio = imgWidth / imgHeight;
+                var renderWidth = pdfWidth - 10;
+                var renderHeight = renderWidth / ratio;
+                
+                if (renderHeight <= pdfHeight - 10) {
+                    pdf.addImage(imgData, 'JPEG', 5, 5, renderWidth, renderHeight);
+                } else {
+                    var pageHeightPx = imgWidth * (pdfHeight - 10) / renderWidth;
+                    var yOffset = 0, pageNum = 0;
+                    while (yOffset < imgHeight) {
+                        var pageCanvas = document.createElement('canvas');
+                        pageCanvas.width = imgWidth;
+                        pageCanvas.height = Math.min(pageHeightPx, imgHeight - yOffset);
+                        var ctx = pageCanvas.getContext('2d');
+                        ctx.drawImage(canvas, 0, -yOffset);
+                        var pageData = pageCanvas.toDataURL('image/jpeg', 0.92);
+                        if (pageNum > 0) pdf.addPage();
+                        pdf.addImage(pageData, 'JPEG', 5, 5, renderWidth, pageCanvas.height * renderWidth / imgWidth);
+                        yOffset += pageHeightPx;
+                        pageNum++;
+                    }
+                }
+                
+                var pdfBlob = pdf.output('blob');
+                var filename = 'vespatimer_' + new Date().toISOString().slice(0, 10) + '.pdf';
+                dl(pdfBlob, filename);
+                showToast('✅ PDF: ' + filename);
+                
+                // Restore everything
+                setTimeout(function() {
+                    if (osmForPdf) map.removeLayer(osmForPdf);
+                    layersToRestore.forEach(function(layer) { layer.addTo(map); });
+                    if (tempPotMarker) map.removeLayer(tempPotMarker);
+                    updatePotMarker();
+                    setTimeout(function() { map.fireEvent('moveend'); }, 100);
+                }, 500);
+            }).catch(function(err) {
+                console.error('PDF generation failed:', err);
+                elementsToHide.forEach(function(el) { el.style.display = ''; });
+                mapEl.style.height = originalHeight;
+                if (tempPotMarker) map.removeLayer(tempPotMarker);
+                updatePotMarker();
+                showAlert('PDF failed', '❌');
+                setTimeout(function() { window.print(); }, 300);
+            });
+        }, 400);
+    }, 1200);
+}
 function exportGPX(){closeModal('exportModal');var g='<?xml version="1.0"?><gpx version="1.1"><wpt lat="'+surveyLocation.lat+'" lon="'+surveyLocation.lng+'"><name>Pot</name></wpt>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)g+='<wpt lat="'+n.lat.toFixed(6)+'" lon="'+n.lng.toFixed(6)+'"><name>'+h.name+'</name></wpt>';}g+='</gpx>';dl(new Blob([g],{type:'application/gpx+xml'}),'vespatimer.gpx');}
 function exportKML(){closeModal('exportModal');var k='<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>Pot</name><Point><coordinates>'+surveyLocation.lng+','+surveyLocation.lat+',0</coordinates></Point></Placemark>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)k+='<Placemark><name>'+h.name+'</name><Point><coordinates>'+n.lng.toFixed(6)+','+n.lat.toFixed(6)+',0</coordinates></Point></Placemark>';}k+='</Document></kml>';dl(new Blob([k],{type:'application/vnd.google-earth.kml+xml'}),'vespatimer.kml');}
 function exportHistory(){closeModal('exportModal');var hist=getHist();dl(new Blob([JSON.stringify(hist,null,2)],{type:'application/json'}),'vespatimer_history.json');}
@@ -1058,6 +1047,7 @@ if('serviceWorker' in navigator){
 }
 
 var isPWA=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+var isStandaloneApp=isPWA;
 var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
 if(isPWA){
   document.addEventListener('contextmenu',function(e){e.preventDefault();});
@@ -1102,6 +1092,10 @@ function openSubPage(pageId){
     window.scrollTo(0,0);
     history.replaceState(null,'','#'+pageId.replace('Screen',''));
   }
+  var closeBtn=document.getElementById('siteCloseBtn');
+  if(closeBtn){
+    closeBtn.style.display=isStandaloneApp?'inline-block':'none';
+  }
 }
 
 function closeSubPage(){
@@ -1120,13 +1114,33 @@ function handleHashRoute(){
 
 window.addEventListener('hashchange',handleHashRoute);
 
-function checkFirstPWAOpen(){
-  var isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
-  var hasSeenSite=localStorage.getItem('has_seen_site')==='true';
-  if(isStandalone&&!hasSeenSite){
-    localStorage.setItem('has_seen_site','true');
-    setTimeout(function(){openSubPage('siteScreen');},1500);
+// Called when user clicks "Ouvrir VespaTimer" from the site
+function exitSiteToApp(){
+  closeSubPage();
+  checkFirstLaunchAfterSite();
+}
+
+function checkFirstLaunchAfterSite(){
+  var hasSeenWelcome=localStorage.getItem('welcome_seen')==='true';
+  if(!hasSeenWelcome){
+    localStorage.setItem('welcome_seen','true');
+    firstLaunchXToApp=false;
+    setTimeout(function(){openModal('aboutModal');},500);
   }
+}
+
+function checkFirstPWAOpen(){
+  if(isStandaloneApp){
+    var hasSeenSite=localStorage.getItem('has_seen_site')==='true';
+    if(!hasSeenSite){
+      localStorage.setItem('has_seen_site','true');
+      setTimeout(function(){openSubPage('siteScreen');},1500);
+    }
+    return;
+  }
+  var hash=window.location.hash.replace('#','');
+  if(hash==='site')return;
+  setTimeout(function(){openSubPage('siteScreen');},300);
 }
 
 // ============ SITE TABS ============
@@ -1255,9 +1269,11 @@ function boot(){
   handleUrlParams();
   handleHashRoute();
   updateDateTime();
-  checkFirstLaunch();
   checkIOSInstall();
   checkFirstPWAOpen();
+  if(isStandaloneApp){
+    checkFirstLaunch();
+  }
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>

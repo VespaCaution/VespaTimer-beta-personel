@@ -1094,10 +1094,6 @@ function openSubPage(pageId){
     window.scrollTo(0,0);
     history.replaceState(null,'','#'+pageId.replace('Screen',''));
   }
-  var closeBtn=document.getElementById('siteCloseBtn');
-  if(closeBtn){
-    closeBtn.style.display=isStandaloneApp?'inline-block':'none';
-  }
 }
 
 function closeSubPage(){

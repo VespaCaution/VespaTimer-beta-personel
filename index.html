@@ -1012,7 +1012,6 @@ function stopTimerInterval(){if(timerInterval){clearInterval(timerInterval);time
 
 function updateDateTime(){document.getElementById('datetime').textContent=new Date().toLocaleString();}
 setInterval(updateDateTime,1000);
-
 function closeAbout(){var wasFirstLaunch=firstLaunchXToApp;firstLaunchXToApp=false;closeModal('aboutModal');if(!wasFirstLaunch){openModal('optionsModal');}}
 
 function showUpdateBanner(reg){
@@ -1072,22 +1071,14 @@ function handleUrlParams(){
   else if(action==='map'){var mapCard=document.querySelector('.card:nth-of-type(3)');if(mapCard)mapCard.scrollIntoView({behavior:'smooth'});}
 }
 
-// ============ FIRST LAUNCH ============
 function checkFirstLaunch(){
-  var key = isStandaloneApp ? 'welcome_seen_pwa' : 'welcome_seen_browser';
-  var hasSeen = localStorage.getItem(key) === 'true';
-  if (hasSeen) return false;
-  localStorage.setItem(key, 'true');
-  firstLaunchXToApp = true;
-  return true;
-}
-
-function showAboutIfFirstVisit(){
-  var isFirst = checkFirstLaunch();
-  if (isFirst) {
+  var hasSeenWelcome=localStorage.getItem('welcome_seen')==='true';
+  if(!hasSeenWelcome){
+    localStorage.setItem('welcome_seen','true');
+    firstLaunchXToApp=true;
     setTimeout(function(){
       openModal('aboutModal');
-    }, 500);
+    },1500);
   }
 }
 
@@ -1114,7 +1105,6 @@ function closeSubPage(){
   });
   history.replaceState(null,'',window.location.pathname);
   if(map)setTimeout(function(){map.invalidateSize();},100);
-  showAboutIfFirstVisit();
 }
 
 function handleHashRoute(){
@@ -1124,16 +1114,44 @@ function handleHashRoute(){
 
 window.addEventListener('hashchange',handleHashRoute);
 
+// Called when user clicks "Ouvrir VespaTimer" from the site
+function exitSiteToApp(){
+  closeSubPage();
+  checkFirstLaunchAfterSite();
+}
+
+function checkFirstLaunchAfterSite(){
+  var hasSeenWelcome=localStorage.getItem('welcome_seen')==='true';
+  if(!hasSeenWelcome){
+    localStorage.setItem('welcome_seen','true');
+    firstLaunchXToApp=false;
+    setTimeout(function(){openModal('aboutModal');},500);
+  }
+}
+
 function checkFirstPWAOpen(){
-  if (isStandaloneApp) {
-    showAboutIfFirstVisit();
+  // More reliable standalone detection
+  var standalone = window.matchMedia('(display-mode: standalone)').matches 
+                   || window.matchMedia('(display-mode: fullscreen)').matches
+                   || window.matchMedia('(display-mode: minimal-ui)').matches
+                   || window.navigator.standalone === true;
+  
+  isStandaloneApp = standalone;
+  
+  if(standalone){
+    // PWA mode: first-ever PWA open → show site
+    var hasSeenSite=localStorage.getItem('has_seen_site')==='true';
+    if(!hasSeenSite){
+      localStorage.setItem('has_seen_site','true');
+      setTimeout(function(){openSubPage('siteScreen');},1500);
+    }
     return;
   }
-  if (window.location.hash !== '#site') {
-    setTimeout(function(){
-      openSubPage('siteScreen');
-    }, 600);
-  }
+  
+  // Browser/link mode: ALWAYS open site
+  setTimeout(function(){
+    openSubPage('siteScreen');
+  },300);
 }
 
 // ============ SITE TABS ============
@@ -1263,9 +1281,13 @@ function boot(){
   handleHashRoute();
   updateDateTime();
   checkIOSInstall();
-  setTimeout(function(){
-    checkFirstPWAOpen();
-  }, 300);
+  checkFirstPWAOpen();
+  // Run first-launch check in BOTH modes, but timing differs:
+  // PWA → About modal on app open
+  // Browser → About modal only after user clicks "Ouvrir VespaTimer"
+  if(isStandaloneApp){
+    checkFirstLaunch();
+  }
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>

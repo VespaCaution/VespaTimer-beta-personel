@@ -1251,8 +1251,13 @@ function contactSubmit(type){
     showAlert('❌ Erreur réseau. Vérifiez votre connexion.','❌');
   });
 }
-
 function boot(){
+  var msg = 'Mode: ' + (isStandaloneApp ? 'PWA' : 'BROWSER') + ' | Hash: "' + window.location.hash + '"';
+  var testBanner = document.createElement('div');
+  testBanner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c41e3a;color:white;padding:10px;text-align:center;z-index:999999;font-size:14px;font-weight:bold;';
+  testBanner.textContent = msg;
+  document.body.appendChild(testBanner);
+  
   loadAll();
   updateNotifButton();
   applyTranslations();
@@ -1265,12 +1270,10 @@ function boot(){
   handleHashRoute();
   updateDateTime();
   checkIOSInstall();
-  // Delay the first-open check to ensure everything is ready
   setTimeout(function(){
     checkFirstPWAOpen();
   }, 300);
 }
-if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>
 </body>
 </html>

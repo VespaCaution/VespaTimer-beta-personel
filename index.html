@@ -129,8 +129,7 @@
     <div style="max-width:700px;margin:0 auto;background:var(--card);border-radius:20px;box-shadow:0 4px 20px rgba(0,0,0,0.1);position:relative;overflow:hidden;">
         <div style="background:var(--gold);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;color:white;">
     <div style="font-size:1.3rem;font-weight:700;">🐝 VespaTimer</div>
-    <button id="siteCloseBtn" onclick="closeSubPage()" style="background:none;border:none;color:white;font-size:1.5rem;cursor:pointer;padding:4px 8px;">✕</button>
-        </div>
+            </div>
         <div style="display:flex;background:#fefaf2;border-bottom:2px solid var(--border);overflow-x:auto;">
             <button class="site-tab active" data-tab="home" onclick="showSiteTab('home')" style="flex:1;min-width:70px;padding:12px 8px;border:none;background:none;color:var(--text);font-weight:600;cursor:pointer;font-size:0.85rem;border-bottom:3px solid transparent;">Accueil</button>
             <button class="site-tab" data-tab="versions" onclick="showSiteTab('versions')" style="flex:1;min-width:70px;padding:12px 8px;border:none;background:none;color:var(--text);font-weight:600;cursor:pointer;font-size:0.85rem;border-bottom:3px solid transparent;">Versions</button>
@@ -156,7 +155,7 @@
                 <a href="https://youtube.com/@hornetjunkie" target="_blank" class="btn-gold" style="display:inline-block;text-decoration:none;padding:12px 24px;font-size:0.95rem;border-radius:25px;">▶️ <span data-lang="site_watch_video">Voir la vidéo</span></a>
             </div>
             <div style="text-align:center;margin-bottom:24px;">
-                <button onclick="closeSubPage()" class="btn-gold" style="padding:16px 40px;font-size:1.1rem;border-radius:30px;" data-lang="site_open_app">Ouvrir VespaTimer</button>
+              <button onclick="exitSiteToApp()" class="btn-gold" style="padding:16px 40px;font-size:1.1rem;border-radius:30px;" data-lang="site_open_app">Ouvrir VespaTimer</button>  
             </div>
             <div style="background:#f9f4e8;border-radius:16px;padding:20px;margin-bottom:24px;">
                 <h3 style="color:var(--gold);font-size:1.05rem;margin-bottom:12px;text-align:center;" data-lang="site_features_title">Fonctionnalités</h3>
@@ -1071,16 +1070,8 @@ function handleUrlParams(){
   else if(action==='map'){var mapCard=document.querySelector('.card:nth-of-type(3)');if(mapCard)mapCard.scrollIntoView({behavior:'smooth'});}
 }
 
-function checkFirstLaunch(){
-  var hasSeenWelcome=localStorage.getItem('welcome_seen')==='true';
-  if(!hasSeenWelcome){
-    localStorage.setItem('welcome_seen','true');
-    firstLaunchXToApp=true;
-    setTimeout(function(){
-      openModal('aboutModal');
-    },1500);
-  }
-}
+// Deprecated — About modal is now handled by checkFirstLaunchAfterSite()
+function checkFirstLaunch(){}
 
 // ============ SITE SUB-PAGE ROUTING ============
 var SUB_PAGES=['siteScreen'];
@@ -1121,37 +1112,20 @@ function exitSiteToApp(){
 }
 
 function checkFirstLaunchAfterSite(){
-  var hasSeenWelcome=localStorage.getItem('welcome_seen')==='true';
-  if(!hasSeenWelcome){
-    localStorage.setItem('welcome_seen','true');
-    firstLaunchXToApp=false;
+  // Show About modal exactly once, the first time the user closes the site
+  // (works identically in browser and PWA mode)
+  var aboutShown=localStorage.getItem('about_shown')==='true';
+  if(!aboutShown){
+    localStorage.setItem('about_shown','true');
     setTimeout(function(){openModal('aboutModal');},500);
   }
 }
 
 function checkFirstPWAOpen(){
-  // More reliable standalone detection
-  var standalone = window.matchMedia('(display-mode: standalone)').matches 
-                   || window.matchMedia('(display-mode: fullscreen)').matches
-                   || window.matchMedia('(display-mode: minimal-ui)').matches
-                   || window.navigator.standalone === true;
-  
-  isStandaloneApp = standalone;
-  
-  if(standalone){
-    // PWA mode: first-ever PWA open → show site
-    var hasSeenSite=localStorage.getItem('has_seen_site')==='true';
-    if(!hasSeenSite){
-      localStorage.setItem('has_seen_site','true');
-      setTimeout(function(){openSubPage('siteScreen');},1500);
-    }
-    return;
-  }
-  
-  // Browser/link mode: ALWAYS open site
+  // Always open the site screen first — both browser and PWA mode
   setTimeout(function(){
     openSubPage('siteScreen');
-  },300);
+  }, 300);
 }
 
 // ============ SITE TABS ============
@@ -1282,12 +1256,6 @@ function boot(){
   updateDateTime();
   checkIOSInstall();
   checkFirstPWAOpen();
-  // Run first-launch check in BOTH modes, but timing differs:
-  // PWA → About modal on app open
-  // Browser → About modal only after user clicks "Ouvrir VespaTimer"
-  if(isStandaloneApp){
-    checkFirstLaunch();
-  }
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>

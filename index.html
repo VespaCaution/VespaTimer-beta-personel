@@ -1012,6 +1012,7 @@ function stopTimerInterval(){if(timerInterval){clearInterval(timerInterval);time
 
 function updateDateTime(){document.getElementById('datetime').textContent=new Date().toLocaleString();}
 setInterval(updateDateTime,1000);
+
 function closeAbout(){var wasFirstLaunch=firstLaunchXToApp;firstLaunchXToApp=false;closeModal('aboutModal');if(!wasFirstLaunch){openModal('optionsModal');}}
 
 function showUpdateBanner(reg){
@@ -1113,7 +1114,6 @@ function closeSubPage(){
   });
   history.replaceState(null,'',window.location.pathname);
   if(map)setTimeout(function(){map.invalidateSize();},100);
-  // Any close (X or "Ouvrir VespaTimer") → check first launch
   showAboutIfFirstVisit();
 }
 
@@ -1125,19 +1125,17 @@ function handleHashRoute(){
 window.addEventListener('hashchange',handleHashRoute);
 
 function checkFirstPWAOpen(){
-  // PWA mode: main app opens directly. Show About if first PWA visit.
   if (isStandaloneApp) {
     showAboutIfFirstVisit();
     return;
   }
-  
-  // Browser/link mode: ALWAYS open site first
-  var hash = window.location.hash.replace('#', '');
-  if (hash === 'site') return;
-  setTimeout(function(){
-    openSubPage('siteScreen');
-  }, 600);
+  if (window.location.hash !== '#site') {
+    setTimeout(function(){
+      openSubPage('siteScreen');
+    }, 600);
+  }
 }
+
 // ============ SITE TABS ============
 function showSiteTab(tabName){
   var tabs=document.querySelectorAll('.site-tab');
@@ -1251,13 +1249,8 @@ function contactSubmit(type){
     showAlert('❌ Erreur réseau. Vérifiez votre connexion.','❌');
   });
 }
+
 function boot(){
-  var msg = 'Mode: ' + (isStandaloneApp ? 'PWA' : 'BROWSER') + ' | Hash: "' + window.location.hash + '"';
-  var testBanner = document.createElement('div');
-  testBanner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c41e3a;color:white;padding:10px;text-align:center;z-index:999999;font-size:14px;font-weight:bold;';
-  testBanner.textContent = msg;
-  document.body.appendChild(testBanner);
-  
   loadAll();
   updateNotifButton();
   applyTranslations();
@@ -1274,6 +1267,7 @@ function boot(){
     checkFirstPWAOpen();
   }, 300);
 }
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>
 </body>
 </html>

@@ -1125,7 +1125,7 @@ function handleHashRoute(){
 window.addEventListener('hashchange',handleHashRoute);
 
 function checkFirstPWAOpen(){
-  // PWA mode: main app opens directly, show About if first PWA visit
+  // PWA mode: main app opens directly. Show About if first PWA visit.
   if (isStandaloneApp) {
     showAboutIfFirstVisit();
     return;
@@ -1136,9 +1136,8 @@ function checkFirstPWAOpen(){
   if (hash === 'site') return;
   setTimeout(function(){
     openSubPage('siteScreen');
-  }, 300);
+  }, 600);
 }
-
 // ============ SITE TABS ============
 function showSiteTab(tabName){
   var tabs=document.querySelectorAll('.site-tab');
@@ -1266,7 +1265,10 @@ function boot(){
   handleHashRoute();
   updateDateTime();
   checkIOSInstall();
-  checkFirstPWAOpen();
+  // Delay the first-open check to ensure everything is ready
+  setTimeout(function(){
+    checkFirstPWAOpen();
+  }, 300);
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>

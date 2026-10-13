@@ -766,22 +766,22 @@ function exportPDF() {
         }
     }
     
-    // Fit bounds with extra padding so nothing is cut off
+    // Freeze the map size FIRST so fitBounds computes against the final viewport
+var mapEl = document.getElementById('map');
+var originalHeight = mapEl.style.height;
+mapEl.style.height = '350px';
+if (map) map.invalidateSize();
+
+setTimeout(function() {
+    // NOW fit bounds against the frozen container size
     if (allPoints.length > 1) {
         map.fitBounds(L.latLngBounds(allPoints), { padding: [80, 80], maxZoom: 16 });
     } else {
         map.setView([surveyLocation.lat, surveyLocation.lng], 15);
     }
     
-    // Wait for the map to fully re-render, then capture
+    // Wait for tiles + markers to settle after the fit
     setTimeout(function() {
-        // Freeze the map size to prevent layout shifts
-        var mapEl = document.getElementById('map');
-        var originalHeight = mapEl.style.height;
-        mapEl.style.height = '350px';
-        if (map) map.invalidateSize();
-        
-        setTimeout(function() {
             // Hide UI elements for clean PDF
             var elementsToHide = [];
             var selectors = ['.bottom-bar', '#updateBanner', '.header'];

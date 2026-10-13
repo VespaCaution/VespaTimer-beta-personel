@@ -721,13 +721,245 @@ function installPWA(){var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);if(
 
 function dl(b,n){var file=new File([b],n,{type:b.type||'application/octet-stream'});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:n}).then(function(){sendNotification(t('export_success'),n);}).catch(function(err){if(err.name!=='AbortError'){downloadFile(b,n);}});}else{downloadFile(b,n);}}
 function downloadFile(b,n){var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);sendNotification(t('export_success'),n);}
+ // ============================================================
+// UNIFIED EXPORT MODAL + HELPERS
+// ============================================================
 
-function exportJSON(){closeModal('exportModal');var data={version:'2.0',hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo};dl(new Blob([JSON.stringify(data)],{type:'application/json'}),'vespatimer.json');}
+function showExportReadyModal(blob, filename, mime) {
+    // Revoke any previous blob URL to avoid leaks
+    if (window._lastExportUrl) {
+        try { URL.revokeObjectURL(window._lastExportUrl); } catch(e) {}
+        window._lastExportUrl = null;
+    }
+    var url = URL.createObjectURL(blob);
+    window._lastExportUrl = url;
+
+    var sizeKB = Math.max(1, Math.round(blob.size / 1024));
+    var sizeStr = sizeKB > 1024 ? (sizeKB/1024).toFixed(2) + ' MB' : sizeKB + ' KB';
+    var canShare = !!(navigator.share && navigator.canShare);
+
+    var icon = '📄';
+    if (mime && mime.indexOf('json') !== -1) icon = '📋';
+    if (mime && mime.indexOf('gpx') !== -1) icon = '📍';
+    if (mime && mime.indexOf('kml') !== -1) icon = '🌍';
+    if (mime && mime.indexOf('pdf') !== -1) icon = '📄';
+
+    var html =
+        '<div class="custom-alert" style="max-width:400px;">' +
+            '<div class="custom-alert-icon">' + icon + '</div>' +
+            '<div class="custom-alert-message">' +
+                'Export prêt<br>' +
+                '<span style="font-size:0.85rem;color:#888;">' + filename + ' · ' + sizeStr + '</span>' +
+            '</div>' +
+            '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">' +
+                '<a href="' + url + '" download="' + filename + '" class="custom-alert-button" style="display:block;text-decoration:none;text-align:center;">📥 Télécharger</a>' +
+                (canShare ?
+                    '<button class="custom-alert-button" style="background:#5f7d6b;" onclick="shareExport(\'' + url + '\',\'' + filename + '\',\'' + (mime||'application/octet-stream') + '\')">📤 Partager</button>'
+                    : '') +
+                '<button class="custom-alert-button" style="background:#888;" onclick="closeExportReadyModal()">Fermer</button>' +
+            '</div>' +
+        '</div>';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'custom-alert-overlay';
+    overlay.id = 'exportReadyOverlay';
+    overlay.style.display = 'flex';
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    sendNotification(t('export_success'), filename);
+}
+
+function shareExport(url, filename, mime) {
+    if (!navigator.share) return;
+    fetch(url)
+        .then(function(r) { return r.blob(); })
+        .then(function(blob) {
+            var file = new File([blob], filename, { type: mime });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                return navigator.share({ files: [file], title: filename });
+            } else {
+                return navigator.share({ title: filename, text: 'VespaTimer export' });
+            }
+        })
+        .catch(function(err) {
+            console.log('Share canceled/failed:', err && err.name);
+        });
+}
+
+function closeExportReadyModal() {
+    var ov = document.getElementById('exportReadyOverlay');
+    if (ov) ov.remove();
+    if (window._lastExportUrl) {
+        try { URL.revokeObjectURL(window._lastExportUrl); } catch(e) {}
+        window._lastExportUrl = null;
+    }
+}
+
+// ============================================================
+// PDF MAP CAPTURE — leaflet-image stitching + overlay drawing
+// ============================================================
+
+function captureMapCanvas(callback) {
+    if (!window.leafletImage) {
+        // leaflet-image not loaded — bail out, caller will fall back
+        callback(null);
+        return;
+    }
+    leafletImage(map, function(err, tileCanvas) {
+        if (err || !tileCanvas) {
+            callback(null);
+            return;
+        }
+        var ctx = tileCanvas.getContext('2d');
+        var size = map.getSize();
+
+        // --- Draw polylines (pot → nest) ---
+        for (var i = 0; i < hornets.length; i++) {
+            var h = hornets[i];
+            if (!h.flights.length) continue;
+            var c = h.color || COLORS[i % COLORS.length];
+            var nd = getNestCoordsForHornet(h, surveyLocation);
+            if (!nd) continue;
+            var potPt = map.latLngToContainerPoint([surveyLocation.lat, surveyLocation.lng]);
+            var nestPt = map.latLngToContainerPoint([nd.lat, nd.lng]);
+
+            ctx.strokeStyle = c;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([6, 6]);
+            ctx.beginPath();
+            ctx.moveTo(potPt.x, potPt.y);
+            ctx.lineTo(nestPt.x, nestPt.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // --- Draw ovals (via createOval point list) ---
+        for (var j = 0; j < hornets.length; j++) {
+            var hj = hornets[j];
+            if (!hj.flights.length) continue;
+            var cj = hj.color || COLORS[j % COLORS.length];
+            var ndj = getNestCoordsForHornet(hj, surveyLocation);
+            if (!ndj) continue;
+            var ovalPts = createOval(L.latLng(ndj.lat, ndj.lng), ndj.direction);
+            ctx.beginPath();
+            for (var k = 0; k < ovalPts.length; k++) {
+                var p = map.latLngToContainerPoint(ovalPts[k]);
+                if (k === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = cj + '26'; // ~15% alpha
+            ctx.fill();
+            ctx.strokeStyle = cj;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // --- Draw nest circle markers ---
+        for (var m = 0; m < hornets.length; m++) {
+            var hm = hornets[m];
+            if (!hm.flights.length) continue;
+            var cm = hm.color || COLORS[m % COLORS.length];
+            var ndm = getNestCoordsForHornet(hm, surveyLocation);
+            if (!ndm) continue;
+            var nestPtm = map.latLngToContainerPoint([ndm.lat, ndm.lng]);
+            ctx.beginPath();
+            ctx.arc(nestPtm.x, nestPtm.y, 7, 0, Math.PI * 2);
+            ctx.fillStyle = cm;
+            ctx.globalAlpha = 0.7;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = cm;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // --- Draw pot as filled circle + emoji ---
+        var potPt2 = map.latLngToContainerPoint([surveyLocation.lat, surveyLocation.lng]);
+        ctx.beginPath();
+        ctx.arc(potPt2.x, potPt2.y, 11, 0, Math.PI * 2);
+        ctx.fillStyle = '#d4a853';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🍯', potPt2.x, potPt2.y);
+
+        callback(tileCanvas);
+    });
+}
+
+// ============================================================
+// EXPORTS
+// ============================================================
+
+function exportJSON() {
+    closeModal('exportModal');
+    var data = {
+        version: '2.0',
+        hornets: hornets,
+        surveyLocation: surveyLocation,
+        inspectorName: inspectorName,
+        notes: notes,
+        personalInfo: personalInfo
+    };
+    var blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    var filename = 'vespatimer_' + new Date().toISOString().slice(0, 10) + '.json';
+    showExportReadyModal(blob, filename, 'application/json');
+}
+
+function exportHistory() {
+    closeModal('exportModal');
+    var hist = getHist();
+    var blob = new Blob([JSON.stringify(hist, null, 2)], { type: 'application/json' });
+    var filename = 'vespatimer_history_' + new Date().toISOString().slice(0, 10) + '.json';
+    showExportReadyModal(blob, filename, 'application/json');
+}
+
+function exportGPX() {
+    closeModal('exportModal');
+    var g = '<?xml version="1.0"?><gpx version="1.1" creator="VespaTimer"><wpt lat="' + surveyLocation.lat + '" lon="' + surveyLocation.lng + '"><name>Pot</name></wpt>';
+    for (var i = 0; i < hornets.length; i++) {
+        var h = hornets[i];
+        if (!h.flights.length) continue;
+        var d = getDist(getAvg(h));
+        if (d <= 0) continue;
+        var n = getNestCoords(h);
+        if (n) g += '<wpt lat="' + n.lat.toFixed(6) + '" lon="' + n.lng.toFixed(6) + '"><name>' + h.name + '</name></wpt>';
+    }
+    g += '</gpx>';
+    var blob = new Blob([g], { type: 'application/gpx+xml' });
+    var filename = 'vespatimer_' + new Date().toISOString().slice(0, 10) + '.gpx';
+    showExportReadyModal(blob, filename, 'application/gpx+xml');
+}
+
+function exportKML() {
+    closeModal('exportModal');
+    var k = '<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>Pot</name><Point><coordinates>' + surveyLocation.lng + ',' + surveyLocation.lat + ',0</coordinates></Point></Placemark>';
+    for (var i = 0; i < hornets.length; i++) {
+        var h = hornets[i];
+        if (!h.flights.length) continue;
+        var d = getDist(getAvg(h));
+        if (d <= 0) continue;
+        var n = getNestCoords(h);
+        if (n) k += '<Placemark><name>' + h.name + '</name><Point><coordinates>' + n.lng.toFixed(6) + ',' + n.lat.toFixed(6) + ',0</coordinates></Point></Placemark>';
+    }
+    k += '</Document></kml>';
+    var blob = new Blob([k], { type: 'application/vnd.google-earth.kml+xml' });
+    var filename = 'vespatimer_' + new Date().toISOString().slice(0, 10) + '.kml';
+    showExportReadyModal(blob, filename, 'application/vnd.google-earth.kml+xml');
+}
+
 function exportPDF() {
     closeModal('exportModal');
     if (!map) {
         setTimeout(function() { window.print(); }, 400);
-        sendNotification(t('export_success'), 'vespatimer.pdf');
         return;
     }
 
@@ -753,6 +985,17 @@ function exportPDF() {
     var tempPotMarker = L.circleMarker([surveyLocation.lat, surveyLocation.lng], {
         radius: 10, color: '#d4a853', fillColor: '#d4a853', fillOpacity: 1, weight: 3
     }).addTo(map);
+
+    // Hide all Leaflet vector layers (SVG) so html2canvas doesn't double-draw them
+    var svgLayersHidden = [];
+    map.eachLayer(function(layer) {
+        if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.CircleMarker) {
+            if (layer._path) {
+                svgLayersHidden.push({ el: layer._path, prev: layer._path.style.display });
+                layer._path.style.display = 'none';
+            }
+        }
+    });
 
     // Build bounds
     var allPoints = [L.latLng(surveyLocation.lat, surveyLocation.lng)];
@@ -789,19 +1032,24 @@ function exportPDF() {
                 if (el) { el.style.display = 'none'; elementsToHide.push(el); }
             });
 
-            html2canvas(document.body, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: false,
-                backgroundColor: '#f5f2e6',
-                logging: false,
-                windowWidth: document.documentElement.clientWidth,
-                windowHeight: document.documentElement.clientHeight,
-                width: document.documentElement.clientWidth,
-                height: document.body.scrollHeight
-            }).then(function(canvas) {
+            function restoreMapElements() {
+                // Restore hidden SVG layers
+                svgLayersHidden.forEach(function(s) {
+                    if (s.el) s.el.style.display = s.prev;
+                });
+                svgLayersHidden = [];
+                // Restore visible UI
                 elementsToHide.forEach(function(el) { el.style.display = ''; });
+                // Restore base layer + marker
+                if (osmForPdf) map.removeLayer(osmForPdf);
+                layersToRestore.forEach(function(layer) { layer.addTo(map); });
+                if (tempPotMarker) map.removeLayer(tempPotMarker);
+                updatePotMarker();
+                map.setView(savedCenter, savedZoom, { animate: false });
+                setTimeout(function() { map.fireEvent('moveend'); }, 100);
+            }
 
+            function buildPdfFromCanvas(canvas) {
                 var imgData = canvas.toDataURL('image/jpeg', 0.92);
                 var jsPDFConstructor = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
                 var pdf = new jsPDFConstructor('p', 'mm', 'a4');
@@ -836,99 +1084,71 @@ function exportPDF() {
                 var pdfBlob = pdf.output('blob');
                 var filename = 'vespatimer_' + new Date().toISOString().slice(0, 10) + '.pdf';
 
-                console.log('PDF blob:', pdfBlob.size, 'bytes, type:', pdfBlob.type);
+                showExportReadyModal(pdfBlob, filename, 'application/pdf');
 
-                // Show a modal with a real <a download> link + share button.
-                // This guarantees the download works, because the user's tap
-                // on the link is a fresh user gesture.
-                showPdfReadyModal(pdfBlob, filename);
+                setTimeout(restoreMapElements, 500);
+            }
 
-                // Restore layers and view
-                setTimeout(function() {
-                    if (osmForPdf) map.removeLayer(osmForPdf);
-                    layersToRestore.forEach(function(layer) { layer.addTo(map); });
-                    if (tempPotMarker) map.removeLayer(tempPotMarker);
-                    updatePotMarker();
-                    map.setView(savedCenter, savedZoom, { animate: false });
-                    setTimeout(function() { map.fireEvent('moveend'); }, 100);
-                }, 500);
-            }).catch(function(err) {
-                console.error('PDF generation failed:', err);
-                elementsToHide.forEach(function(el) { el.style.display = ''; });
-                if (tempPotMarker) map.removeLayer(tempPotMarker);
-                updatePotMarker();
-                map.setView(savedCenter, savedZoom, { animate: false });
-                showAlert('PDF failed', '❌');
-                setTimeout(function() { window.print(); }, 300);
+            // Try to build a stitched map canvas (tiles only, perfect geometry)
+            captureMapCanvas(function(mapCanvas) {
+                if (mapCanvas) {
+                    // Replace the on-screen Leaflet map DOM with the stitched canvas
+                    // by placing an <img> over it. Then html2canvas captures a flat bitmap.
+                    var mapEl = document.getElementById('map');
+                    var overlayImg = document.createElement('img');
+                    overlayImg.src = mapCanvas.toDataURL('image/png');
+                    overlayImg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:1000;pointer-events:none;';
+                    overlayImg.id = 'pdfMapOverlay';
+                    if (getComputedStyle(mapEl).position === 'static') {
+                        mapEl.style.position = 'relative';
+                    }
+                    mapEl.appendChild(overlayImg);
+
+                    setTimeout(function() {
+                        html2canvas(document.body, {
+                            scale: 2, useCORS: true, allowTaint: false,
+                            backgroundColor: '#f5f2e6', logging: false,
+                            windowWidth: document.documentElement.clientWidth,
+                            windowHeight: document.documentElement.clientHeight,
+                            width: document.documentElement.clientWidth,
+                            height: document.body.scrollHeight
+                        }).then(function(canvas) {
+                            var ov = document.getElementById('pdfMapOverlay');
+                            if (ov) ov.remove();
+                            mapEl.style.position = '';
+                            buildPdfFromCanvas(canvas);
+                        }).catch(function(err) {
+                            console.error('html2canvas failed:', err);
+                            var ov = document.getElementById('pdfMapOverlay');
+                            if (ov) ov.remove();
+                            mapEl.style.position = '';
+                            elementsToHide.forEach(function(el) { el.style.display = ''; });
+                            restoreMapElements();
+                            showAlert('PDF failed', '❌');
+                        });
+                    }, 250);
+                } else {
+                    // Fallback: direct html2canvas (original behavior)
+                    html2canvas(document.body, {
+                        scale: 2, useCORS: true, allowTaint: false,
+                        backgroundColor: '#f5f2e6', logging: false,
+                        windowWidth: document.documentElement.clientWidth,
+                        windowHeight: document.documentElement.clientHeight,
+                        width: document.documentElement.clientWidth,
+                        height: document.body.scrollHeight
+                    }).then(function(canvas) {
+                        buildPdfFromCanvas(canvas);
+                    }).catch(function(err) {
+                        console.error('html2canvas failed:', err);
+                        elementsToHide.forEach(function(el) { el.style.display = ''; });
+                        restoreMapElements();
+                        showAlert('PDF failed', '❌');
+                    });
+                }
             });
         }, 1200);
     }, 400);
-}
-    function showPdfReadyModal(blob, filename) {
-    // Revoke any previous URL to avoid leaks
-    if (window._lastPdfUrl) {
-        try { URL.revokeObjectURL(window._lastPdfUrl); } catch(e) {}
-        window._lastPdfUrl = null;
-    }
-    var url = URL.createObjectURL(blob);
-    window._lastPdfUrl = url;
-
-    var sizeKB = Math.max(1, Math.round(blob.size / 1024));
-    var canShare = !!(navigator.share && navigator.canShare);
-
-    var html =
-        '<div class="custom-alert" style="max-width:400px;">' +
-            '<div class="custom-alert-icon">📄</div>' +
-            '<div class="custom-alert-message">' +
-                'PDF prêt<br><span style="font-size:0.85rem;color:#888;">' + filename + ' · ' + sizeKB + ' KB</span>' +
-            '</div>' +
-            '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">' +
-                '<a href="' + url + '" download="' + filename + '" class="custom-alert-button" style="display:block;text-decoration:none;text-align:center;">📥 Télécharger</a>' +
-                (canShare ?
-                    '<button class="custom-alert-button" style="background:#5f7d6b;" onclick="sharePdf(\'' + url + '\',\'' + filename + '\')">📤 Partager</button>'
-                    : '') +
-                '<button class="custom-alert-button" style="background:#888;" onclick="closePdfReadyModal()">Fermer</button>' +
-            '</div>' +
-        '</div>';
-
-    var overlay = document.createElement('div');
-    overlay.className = 'custom-alert-overlay';
-    overlay.id = 'pdfReadyOverlay';
-    overlay.style.display = 'flex';
-    overlay.innerHTML = html;
-    document.body.appendChild(overlay);
-}
-
-function sharePdf(url, filename) {
-    if (!navigator.share) return;
-    fetch(url)
-        .then(function(r) { return r.blob(); })
-        .then(function(blob) {
-            var file = new File([blob], filename, { type: 'application/pdf' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                return navigator.share({ files: [file], title: filename });
-            } else {
-                return navigator.share({ title: filename, text: 'VespaTimer PDF' });
-            }
-        })
-        .catch(function(err) {
-            // User canceled or share failed → do nothing, link is still there
-            console.log('Share canceled/failed:', err && err.name);
-        });
-}
-
-function closePdfReadyModal() {
-    var ov = document.getElementById('pdfReadyOverlay');
-    if (ov) ov.remove();
-    if (window._lastPdfUrl) {
-        try { URL.revokeObjectURL(window._lastPdfUrl); } catch(e) {}
-        window._lastPdfUrl = null;
-    }
-}
-function exportGPX(){closeModal('exportModal');var g='<?xml version="1.0"?><gpx version="1.1"><wpt lat="'+surveyLocation.lat+'" lon="'+surveyLocation.lng+'"><name>Pot</name></wpt>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)g+='<wpt lat="'+n.lat.toFixed(6)+'" lon="'+n.lng.toFixed(6)+'"><name>'+h.name+'</name></wpt>';}g+='</gpx>';dl(new Blob([g],{type:'application/gpx+xml'}),'vespatimer.gpx');}
-function exportKML(){closeModal('exportModal');var k='<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>Pot</name><Point><coordinates>'+surveyLocation.lng+','+surveyLocation.lat+',0</coordinates></Point></Placemark>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)k+='<Placemark><name>'+h.name+'</name><Point><coordinates>'+n.lng.toFixed(6)+','+n.lat.toFixed(6)+',0</coordinates></Point></Placemark>';}k+='</Document></kml>';dl(new Blob([k],{type:'application/vnd.google-earth.kml+xml'}),'vespatimer.kml');}
-function exportHistory(){closeModal('exportModal');var hist=getHist();dl(new Blob([JSON.stringify(hist,null,2)],{type:'application/json'}),'vespatimer_history.json');}
-
+                 }         
 function importData(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasCurrentData){saveHist();}if(d.hornets)hornets=d.hornets.map(function(h){var nh=createHornet(h.name||'Frelon');nh.direction=h.direction||0;nh.flights=h.flights||[];nh.color=h.color||null;return nh;});if(d.surveyLocation)surveyLocation=d.surveyLocation;inspectorName=d.inspectorName||'';notes=d.notes||'';if(d.personalInfo)personalInfo=d.personalInfo;resumedFromIndex=-1;localStorage.setItem('resumed_idx',resumedFromIndex);document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';updatePotMarker();renderAll();saveAll();showToast(t('import_success'));}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
 function importHistory(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(Array.isArray(d)){var existingHist=getHist();var mergedHist=existingHist.slice();for(var i=0;i<d.length;i++){var isDuplicate=false;for(var j=0;j<mergedHist.length;j++){if(d[i].date===mergedHist[j].date&&d[i].location&&mergedHist[j].location&&d[i].location.lat===mergedHist[j].location.lat&&d[i].location.lng===mergedHist[j].location.lng){isDuplicate=true;break;}}if(!isDuplicate)mergedHist.push(d[i]);}mergedHist.sort(function(a,b){return new Date(a.date)-new Date(b.date);});var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;mergedHist=mergedHist.filter(function(e){return new Date(e.date)>new Date(cutoff);});if(mergedHist.length>MAX_HISTORY)mergedHist=mergedHist.slice(-MAX_HISTORY);localStorage.setItem('vh_v2',JSON.stringify(mergedHist));var addedCount=mergedHist.length-existingHist.length;showToast(t('history_imported')+' ('+addedCount+' '+t('new_entries')+')');showHistory();}}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
 

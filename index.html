@@ -967,7 +967,7 @@ function exportKML() {
     showExportReadyModal(blob, filename, 'application/vnd.google-earth.kml+xml');
 }
 
-function exportPDF() {
+        function exportPDF() {
     closeModal('exportModal');
     if (!map) {
         setTimeout(function() { window.print(); }, 400);
@@ -991,13 +991,13 @@ function exportPDF() {
     });
     osmForPdf.addTo(map);
 
-    // Swap emoji pot for a circle marker (used only in the fallback html2canvas path)
+    // Swap emoji pot for circleMarker
     if (potMarker) map.removeLayer(potMarker);
     var tempPotMarker = L.circleMarker([surveyLocation.lat, surveyLocation.lng], {
         radius: 10, color: '#d4a853', fillColor: '#d4a853', fillOpacity: 1, weight: 3
     }).addTo(map);
 
-    // Hide SVG layers so they don't get double-drawn if we fall back to plain html2canvas
+    // Hide SVG vector layers (they'll be drawn by leaflet-image instead)
     var svgLayersHidden = [];
     map.eachLayer(function(layer) {
         if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.CircleMarker) {
@@ -1092,46 +1092,73 @@ function exportPDF() {
                 if (el) { el.style.display = 'none'; elementsToHide.push(el); }
             });
 
-            // Capture the map's bounding box BEFORE html2canvas runs
-            var mapEl = document.getElementById('map');
-            var mapRect = mapEl.getBoundingClientRect();
-            var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
-            var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-            var docRect = {
-                left: mapRect.left + scrollX,
-                top: mapRect.top + scrollY,
-                width: mapRect.width,
-                height: mapRect.height
-            };
-
-            // Get stitched map (in memory, does NOT touch the DOM)
+            // Get the stitched map FIRST (in memory)
             captureMapCanvas(function(mapCanvas) {
-                html2canvas(document.body, {
-                    scale: 2, useCORS: true, allowTaint: false,
-                    backgroundColor: '#f5f2e6', logging: false,
-                    windowWidth: document.documentElement.clientWidth,
-                    windowHeight: document.documentElement.clientHeight,
-                    width: document.documentElement.clientWidth,
-                    height: document.body.scrollHeight
-                }).then(function(pageCanvas) {
-                    elementsToHide.forEach(function(el) { el.style.display = ''; });
+                var mapEl = document.getElementById('map');
+                var overlay = null;
+                var savedMapStyle = null;
 
-                    var finalCanvas = pageCanvas;
-                    if (mapCanvas) {
-                        // html2canvas scale:2 → pageCanvas is 2× the CSS pixels
-                        finalCanvas = compositeMapOntoCanvas(pageCanvas, mapCanvas, docRect, 2);
+                if (mapCanvas) {
+                    // FREEZE the map container size so the overlay can't grow it
+                    var rect = mapEl.getBoundingClientRect();
+                    savedMapStyle = {
+                        position: mapEl.style.position,
+                        width: mapEl.style.width,
+                        height: mapEl.style.height
+                    };
+                    if (getComputedStyle(mapEl).position === 'static') {
+                        mapEl.style.position = 'relative';
                     }
-                    buildPdfFromCanvas(finalCanvas);
-                }).catch(function(err) {
-                    console.error('html2canvas failed:', err);
-                    elementsToHide.forEach(function(el) { el.style.display = ''; });
-                    restoreMapElements();
-                    showAlert('PDF failed', '❌');
-                });
+                    mapEl.style.width = rect.width + 'px';
+                    mapEl.style.height = rect.height + 'px';
+
+                    // Inject the stitched bitmap as an <img> at exact fixed size
+                    overlay = document.createElement('img');
+                    overlay.src = mapCanvas.toDataURL('image/png');
+                    overlay.style.cssText =
+                        'position:absolute;top:0;left:0;width:' + rect.width + 'px;height:' + rect.height + 'px;' +
+                        'z-index:1000;pointer-events:none;';
+                    overlay.id = 'pdfMapOverlay';
+                    mapEl.appendChild(overlay);
+                }
+
+                // Small delay so the img paints before capture
+                setTimeout(function() {
+                    html2canvas(document.body, {
+                        scale: 2, useCORS: true, allowTaint: false,
+                        backgroundColor: '#f5f2e6', logging: false,
+                        windowWidth: document.documentElement.clientWidth,
+                        windowHeight: document.documentElement.clientHeight,
+                        width: document.documentElement.clientWidth,
+                        height: document.body.scrollHeight
+                    }).then(function(pageCanvas) {
+                        // Cleanup overlay + frozen styles
+                        if (overlay) overlay.remove();
+                        if (savedMapStyle) {
+                            mapEl.style.position = savedMapStyle.position;
+                            mapEl.style.width = savedMapStyle.width;
+                            mapEl.style.height = savedMapStyle.height;
+                        }
+                        elementsToHide.forEach(function(el) { el.style.display = ''; });
+
+                        buildPdfFromCanvas(pageCanvas);
+                    }).catch(function(err) {
+                        console.error('html2canvas failed:', err);
+                        if (overlay) overlay.remove();
+                        if (savedMapStyle) {
+                            mapEl.style.position = savedMapStyle.position;
+                            mapEl.style.width = savedMapStyle.width;
+                            mapEl.style.height = savedMapStyle.height;
+                        }
+                        elementsToHide.forEach(function(el) { el.style.display = ''; });
+                        restoreMapElements();
+                        showAlert('PDF failed', '❌');
+                    });
+                }, 250);
             });
         }, 1200);
     }, 400);
-                          }                                    
+                                      }                                  
 function importData(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasCurrentData){saveHist();}if(d.hornets)hornets=d.hornets.map(function(h){var nh=createHornet(h.name||'Frelon');nh.direction=h.direction||0;nh.flights=h.flights||[];nh.color=h.color||null;return nh;});if(d.surveyLocation)surveyLocation=d.surveyLocation;inspectorName=d.inspectorName||'';notes=d.notes||'';if(d.personalInfo)personalInfo=d.personalInfo;resumedFromIndex=-1;localStorage.setItem('resumed_idx',resumedFromIndex);document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';updatePotMarker();renderAll();saveAll();showToast(t('import_success'));}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
 function importHistory(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(Array.isArray(d)){var existingHist=getHist();var mergedHist=existingHist.slice();for(var i=0;i<d.length;i++){var isDuplicate=false;for(var j=0;j<mergedHist.length;j++){if(d[i].date===mergedHist[j].date&&d[i].location&&mergedHist[j].location&&d[i].location.lat===mergedHist[j].location.lat&&d[i].location.lng===mergedHist[j].location.lng){isDuplicate=true;break;}}if(!isDuplicate)mergedHist.push(d[i]);}mergedHist.sort(function(a,b){return new Date(a.date)-new Date(b.date);});var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;mergedHist=mergedHist.filter(function(e){return new Date(e.date)>new Date(cutoff);});if(mergedHist.length>MAX_HISTORY)mergedHist=mergedHist.slice(-MAX_HISTORY);localStorage.setItem('vh_v2',JSON.stringify(mergedHist));var addedCount=mergedHist.length-existingHist.length;showToast(t('history_imported')+' ('+addedCount+' '+t('new_entries')+')');showHistory();}}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
 

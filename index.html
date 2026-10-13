@@ -726,7 +726,6 @@ function downloadFile(b,n){var a=document.createElement('a');a.href=URL.createOb
 // ============================================================
 
 function showExportReadyModal(blob, filename, mime) {
-    // Revoke any previous blob URL to avoid leaks
     if (window._lastExportUrl) {
         try { URL.revokeObjectURL(window._lastExportUrl); } catch(e) {}
         window._lastExportUrl = null;
@@ -736,13 +735,15 @@ function showExportReadyModal(blob, filename, mime) {
 
     var sizeKB = Math.max(1, Math.round(blob.size / 1024));
     var sizeStr = sizeKB > 1024 ? (sizeKB/1024).toFixed(2) + ' MB' : sizeKB + ' KB';
-    var canShare = !!(navigator.share && navigator.canShare);
+
+    // Share button ONLY for PDF — other MIME types are silently rejected by iOS share sheet
+    var isPdf = mime && mime.indexOf('pdf') !== -1;
+    var canShare = isPdf && !!(navigator.share && navigator.canShare);
 
     var icon = '📄';
     if (mime && mime.indexOf('json') !== -1) icon = '📋';
     if (mime && mime.indexOf('gpx') !== -1) icon = '📍';
     if (mime && mime.indexOf('kml') !== -1) icon = '🌍';
-    if (mime && mime.indexOf('pdf') !== -1) icon = '📄';
 
     var html =
         '<div class="custom-alert" style="max-width:400px;">' +
@@ -754,7 +755,7 @@ function showExportReadyModal(blob, filename, mime) {
             '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">' +
                 '<a href="' + url + '" download="' + filename + '" class="custom-alert-button" style="display:block;text-decoration:none;text-align:center;">📥 Télécharger</a>' +
                 (canShare ?
-                    '<button class="custom-alert-button" style="background:#5f7d6b;" onclick="shareExport(\'' + url + '\',\'' + filename + '\',\'' + (mime||'application/octet-stream') + '\')">📤 Partager</button>'
+                    '<button class="custom-alert-button" style="background:#5f7d6b;" onclick="shareExport(\'' + url + '\',\'' + filename + '\',\'' + mime + '\')">📤 Partager</button>'
                     : '') +
                 '<button class="custom-alert-button" style="background:#888;" onclick="closeExportReadyModal()">Fermer</button>' +
             '</div>' +
@@ -797,24 +798,16 @@ function closeExportReadyModal() {
 }
 
 // ============================================================
-// PDF MAP CAPTURE — leaflet-image stitching + overlay drawing
+// MAP STITCHING (tiles only) — used by PDF export
 // ============================================================
 
 function captureMapCanvas(callback) {
-    if (!window.leafletImage) {
-        // leaflet-image not loaded — bail out, caller will fall back
-        callback(null);
-        return;
-    }
+    if (!window.leafletImage) { callback(null); return; }
     leafletImage(map, function(err, tileCanvas) {
-        if (err || !tileCanvas) {
-            callback(null);
-            return;
-        }
+        if (err || !tileCanvas) { callback(null); return; }
         var ctx = tileCanvas.getContext('2d');
-        var size = map.getSize();
 
-        // --- Draw polylines (pot → nest) ---
+        // Polylines pot → nest
         for (var i = 0; i < hornets.length; i++) {
             var h = hornets[i];
             if (!h.flights.length) continue;
@@ -823,7 +816,6 @@ function captureMapCanvas(callback) {
             if (!nd) continue;
             var potPt = map.latLngToContainerPoint([surveyLocation.lat, surveyLocation.lng]);
             var nestPt = map.latLngToContainerPoint([nd.lat, nd.lng]);
-
             ctx.strokeStyle = c;
             ctx.lineWidth = 3;
             ctx.setLineDash([6, 6]);
@@ -834,7 +826,7 @@ function captureMapCanvas(callback) {
             ctx.setLineDash([]);
         }
 
-        // --- Draw ovals (via createOval point list) ---
+        // Ovals
         for (var j = 0; j < hornets.length; j++) {
             var hj = hornets[j];
             if (!hj.flights.length) continue;
@@ -849,7 +841,7 @@ function captureMapCanvas(callback) {
                 else ctx.lineTo(p.x, p.y);
             }
             ctx.closePath();
-            ctx.fillStyle = cj + '26'; // ~15% alpha
+            ctx.fillStyle = cj + '26';
             ctx.fill();
             ctx.strokeStyle = cj;
             ctx.lineWidth = 1.5;
@@ -858,7 +850,7 @@ function captureMapCanvas(callback) {
             ctx.setLineDash([]);
         }
 
-        // --- Draw nest circle markers ---
+        // Nest circles
         for (var m = 0; m < hornets.length; m++) {
             var hm = hornets[m];
             if (!hm.flights.length) continue;
@@ -877,7 +869,7 @@ function captureMapCanvas(callback) {
             ctx.stroke();
         }
 
-        // --- Draw pot as filled circle + emoji ---
+        // Pot
         var potPt2 = map.latLngToContainerPoint([surveyLocation.lat, surveyLocation.lng]);
         ctx.beginPath();
         ctx.arc(potPt2.x, potPt2.y, 11, 0, Math.PI * 2);
@@ -893,6 +885,25 @@ function captureMapCanvas(callback) {
 
         callback(tileCanvas);
     });
+}
+
+// Composite the stitched map canvas onto the html2canvas snapshot at the map's bbox.
+// This is done entirely in-memory — nothing touches the live DOM.
+function compositeMapOntoCanvas(pageCanvas, mapCanvas, mapRect, dpr) {
+    var out = document.createElement('canvas');
+    out.width = pageCanvas.width;
+    out.height = pageCanvas.height;
+    var ctx = out.getContext('2d');
+    ctx.drawImage(pageCanvas, 0, 0);
+
+    // mapRect is in CSS pixels relative to the document; multiply by dpr to match pageCanvas scale
+    var x = mapRect.left * dpr;
+    var y = mapRect.top * dpr;
+    var w = mapRect.width * dpr;
+    var h = mapRect.height * dpr;
+
+    ctx.drawImage(mapCanvas, 0, 0, mapCanvas.width, mapCanvas.height, x, y, w, h);
+    return out;
 }
 
 // ============================================================
@@ -980,13 +991,13 @@ function exportPDF() {
     });
     osmForPdf.addTo(map);
 
-    // Temporarily swap emoji pot for a circleMarker
+    // Swap emoji pot for a circle marker (used only in the fallback html2canvas path)
     if (potMarker) map.removeLayer(potMarker);
     var tempPotMarker = L.circleMarker([surveyLocation.lat, surveyLocation.lng], {
         radius: 10, color: '#d4a853', fillColor: '#d4a853', fillOpacity: 1, weight: 3
     }).addTo(map);
 
-    // Hide all Leaflet vector layers (SVG) so html2canvas doesn't double-draw them
+    // Hide SVG layers so they don't get double-drawn if we fall back to plain html2canvas
     var svgLayersHidden = [];
     map.eachLayer(function(layer) {
         if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.CircleMarker) {
@@ -1019,6 +1030,55 @@ function exportPDF() {
         });
     }
 
+    function restoreMapElements() {
+        svgLayersHidden.forEach(function(s) { if (s.el) s.el.style.display = s.prev; });
+        svgLayersHidden = [];
+        if (osmForPdf) map.removeLayer(osmForPdf);
+        layersToRestore.forEach(function(layer) { layer.addTo(map); });
+        if (tempPotMarker) map.removeLayer(tempPotMarker);
+        updatePotMarker();
+        map.setView(savedCenter, savedZoom, { animate: false });
+        setTimeout(function() { map.fireEvent('moveend'); }, 100);
+    }
+
+    function buildPdfFromCanvas(canvas) {
+        var imgData = canvas.toDataURL('image/jpeg', 0.92);
+        var jsPDFConstructor = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
+        var pdf = new jsPDFConstructor('p', 'mm', 'a4');
+        var pdfWidth = pdf.internal.pageSize.getWidth();
+        var pdfHeight = pdf.internal.pageSize.getHeight();
+
+        var imgWidth = canvas.width;
+        var imgHeight = canvas.height;
+        var ratio = imgWidth / imgHeight;
+        var renderWidth = pdfWidth - 10;
+        var renderHeight = renderWidth / ratio;
+
+        if (renderHeight <= pdfHeight - 10) {
+            pdf.addImage(imgData, 'JPEG', 5, 5, renderWidth, renderHeight);
+        } else {
+            var pageHeightPx = imgWidth * (pdfHeight - 10) / renderWidth;
+            var yOffset = 0, pageNum = 0;
+            while (yOffset < imgHeight) {
+                var pageCanvas = document.createElement('canvas');
+                pageCanvas.width = imgWidth;
+                pageCanvas.height = Math.min(pageHeightPx, imgHeight - yOffset);
+                var ctx = pageCanvas.getContext('2d');
+                ctx.drawImage(canvas, 0, -yOffset);
+                var pageData = pageCanvas.toDataURL('image/jpeg', 0.92);
+                if (pageNum > 0) pdf.addPage();
+                pdf.addImage(pageData, 'JPEG', 5, 5, renderWidth, pageCanvas.height * renderWidth / imgWidth);
+                yOffset += pageHeightPx;
+                pageNum++;
+            }
+        }
+
+        var pdfBlob = pdf.output('blob');
+        var filename = 'vespatimer_' + new Date().toISOString().slice(0, 10) + '.pdf';
+        showExportReadyModal(pdfBlob, filename, 'application/pdf');
+        setTimeout(restoreMapElements, 500);
+    }
+
     setTimeout(function() {
         map.eachLayer(function(layer) {
             if (layer instanceof L.TileLayer) layer.redraw();
@@ -1032,123 +1092,46 @@ function exportPDF() {
                 if (el) { el.style.display = 'none'; elementsToHide.push(el); }
             });
 
-            function restoreMapElements() {
-                // Restore hidden SVG layers
-                svgLayersHidden.forEach(function(s) {
-                    if (s.el) s.el.style.display = s.prev;
-                });
-                svgLayersHidden = [];
-                // Restore visible UI
-                elementsToHide.forEach(function(el) { el.style.display = ''; });
-                // Restore base layer + marker
-                if (osmForPdf) map.removeLayer(osmForPdf);
-                layersToRestore.forEach(function(layer) { layer.addTo(map); });
-                if (tempPotMarker) map.removeLayer(tempPotMarker);
-                updatePotMarker();
-                map.setView(savedCenter, savedZoom, { animate: false });
-                setTimeout(function() { map.fireEvent('moveend'); }, 100);
-            }
+            // Capture the map's bounding box BEFORE html2canvas runs
+            var mapEl = document.getElementById('map');
+            var mapRect = mapEl.getBoundingClientRect();
+            var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+            var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+            var docRect = {
+                left: mapRect.left + scrollX,
+                top: mapRect.top + scrollY,
+                width: mapRect.width,
+                height: mapRect.height
+            };
 
-            function buildPdfFromCanvas(canvas) {
-                var imgData = canvas.toDataURL('image/jpeg', 0.92);
-                var jsPDFConstructor = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
-                var pdf = new jsPDFConstructor('p', 'mm', 'a4');
-                var pdfWidth = pdf.internal.pageSize.getWidth();
-                var pdfHeight = pdf.internal.pageSize.getHeight();
-
-                var imgWidth = canvas.width;
-                var imgHeight = canvas.height;
-                var ratio = imgWidth / imgHeight;
-                var renderWidth = pdfWidth - 10;
-                var renderHeight = renderWidth / ratio;
-
-                if (renderHeight <= pdfHeight - 10) {
-                    pdf.addImage(imgData, 'JPEG', 5, 5, renderWidth, renderHeight);
-                } else {
-                    var pageHeightPx = imgWidth * (pdfHeight - 10) / renderWidth;
-                    var yOffset = 0, pageNum = 0;
-                    while (yOffset < imgHeight) {
-                        var pageCanvas = document.createElement('canvas');
-                        pageCanvas.width = imgWidth;
-                        pageCanvas.height = Math.min(pageHeightPx, imgHeight - yOffset);
-                        var ctx = pageCanvas.getContext('2d');
-                        ctx.drawImage(canvas, 0, -yOffset);
-                        var pageData = pageCanvas.toDataURL('image/jpeg', 0.92);
-                        if (pageNum > 0) pdf.addPage();
-                        pdf.addImage(pageData, 'JPEG', 5, 5, renderWidth, pageCanvas.height * renderWidth / imgWidth);
-                        yOffset += pageHeightPx;
-                        pageNum++;
-                    }
-                }
-
-                var pdfBlob = pdf.output('blob');
-                var filename = 'vespatimer_' + new Date().toISOString().slice(0, 10) + '.pdf';
-
-                showExportReadyModal(pdfBlob, filename, 'application/pdf');
-
-                setTimeout(restoreMapElements, 500);
-            }
-
-            // Try to build a stitched map canvas (tiles only, perfect geometry)
+            // Get stitched map (in memory, does NOT touch the DOM)
             captureMapCanvas(function(mapCanvas) {
-                if (mapCanvas) {
-                    // Replace the on-screen Leaflet map DOM with the stitched canvas
-                    // by placing an <img> over it. Then html2canvas captures a flat bitmap.
-                    var mapEl = document.getElementById('map');
-                    var overlayImg = document.createElement('img');
-                    overlayImg.src = mapCanvas.toDataURL('image/png');
-                    overlayImg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:1000;pointer-events:none;';
-                    overlayImg.id = 'pdfMapOverlay';
-                    if (getComputedStyle(mapEl).position === 'static') {
-                        mapEl.style.position = 'relative';
-                    }
-                    mapEl.appendChild(overlayImg);
+                html2canvas(document.body, {
+                    scale: 2, useCORS: true, allowTaint: false,
+                    backgroundColor: '#f5f2e6', logging: false,
+                    windowWidth: document.documentElement.clientWidth,
+                    windowHeight: document.documentElement.clientHeight,
+                    width: document.documentElement.clientWidth,
+                    height: document.body.scrollHeight
+                }).then(function(pageCanvas) {
+                    elementsToHide.forEach(function(el) { el.style.display = ''; });
 
-                    setTimeout(function() {
-                        html2canvas(document.body, {
-                            scale: 2, useCORS: true, allowTaint: false,
-                            backgroundColor: '#f5f2e6', logging: false,
-                            windowWidth: document.documentElement.clientWidth,
-                            windowHeight: document.documentElement.clientHeight,
-                            width: document.documentElement.clientWidth,
-                            height: document.body.scrollHeight
-                        }).then(function(canvas) {
-                            var ov = document.getElementById('pdfMapOverlay');
-                            if (ov) ov.remove();
-                            mapEl.style.position = '';
-                            buildPdfFromCanvas(canvas);
-                        }).catch(function(err) {
-                            console.error('html2canvas failed:', err);
-                            var ov = document.getElementById('pdfMapOverlay');
-                            if (ov) ov.remove();
-                            mapEl.style.position = '';
-                            elementsToHide.forEach(function(el) { el.style.display = ''; });
-                            restoreMapElements();
-                            showAlert('PDF failed', '❌');
-                        });
-                    }, 250);
-                } else {
-                    // Fallback: direct html2canvas (original behavior)
-                    html2canvas(document.body, {
-                        scale: 2, useCORS: true, allowTaint: false,
-                        backgroundColor: '#f5f2e6', logging: false,
-                        windowWidth: document.documentElement.clientWidth,
-                        windowHeight: document.documentElement.clientHeight,
-                        width: document.documentElement.clientWidth,
-                        height: document.body.scrollHeight
-                    }).then(function(canvas) {
-                        buildPdfFromCanvas(canvas);
-                    }).catch(function(err) {
-                        console.error('html2canvas failed:', err);
-                        elementsToHide.forEach(function(el) { el.style.display = ''; });
-                        restoreMapElements();
-                        showAlert('PDF failed', '❌');
-                    });
-                }
+                    var finalCanvas = pageCanvas;
+                    if (mapCanvas) {
+                        // html2canvas scale:2 → pageCanvas is 2× the CSS pixels
+                        finalCanvas = compositeMapOntoCanvas(pageCanvas, mapCanvas, docRect, 2);
+                    }
+                    buildPdfFromCanvas(finalCanvas);
+                }).catch(function(err) {
+                    console.error('html2canvas failed:', err);
+                    elementsToHide.forEach(function(el) { el.style.display = ''; });
+                    restoreMapElements();
+                    showAlert('PDF failed', '❌');
+                });
             });
         }, 1200);
     }, 400);
-                 }         
+                          }                                    
 function importData(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasCurrentData){saveHist();}if(d.hornets)hornets=d.hornets.map(function(h){var nh=createHornet(h.name||'Frelon');nh.direction=h.direction||0;nh.flights=h.flights||[];nh.color=h.color||null;return nh;});if(d.surveyLocation)surveyLocation=d.surveyLocation;inspectorName=d.inspectorName||'';notes=d.notes||'';if(d.personalInfo)personalInfo=d.personalInfo;resumedFromIndex=-1;localStorage.setItem('resumed_idx',resumedFromIndex);document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';updatePotMarker();renderAll();saveAll();showToast(t('import_success'));}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
 function importHistory(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(Array.isArray(d)){var existingHist=getHist();var mergedHist=existingHist.slice();for(var i=0;i<d.length;i++){var isDuplicate=false;for(var j=0;j<mergedHist.length;j++){if(d[i].date===mergedHist[j].date&&d[i].location&&mergedHist[j].location&&d[i].location.lat===mergedHist[j].location.lat&&d[i].location.lng===mergedHist[j].location.lng){isDuplicate=true;break;}}if(!isDuplicate)mergedHist.push(d[i]);}mergedHist.sort(function(a,b){return new Date(a.date)-new Date(b.date);});var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;mergedHist=mergedHist.filter(function(e){return new Date(e.date)>new Date(cutoff);});if(mergedHist.length>MAX_HISTORY)mergedHist=mergedHist.slice(-MAX_HISTORY);localStorage.setItem('vh_v2',JSON.stringify(mergedHist));var addedCount=mergedHist.length-existingHist.length;showToast(t('history_imported')+' ('+addedCount+' '+t('new_entries')+')');showHistory();}}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
 

@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
@@ -729,7 +730,10 @@ function exportPDF() {
         sendNotification(t('export_success'), 'vespatimer.pdf');
         return;
     }
-    
+
+    var savedCenter = map.getCenter();
+    var savedZoom = map.getZoom();
+
     // Force OSM for PDF
     var osmForPdf = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
@@ -743,14 +747,8 @@ function exportPDF() {
         }
     });
     osmForPdf.addTo(map);
-    
-    // Temporarily swap emoji pot for a centered circleMarker (SVG aligns perfectly)
-    if (potMarker) map.removeLayer(potMarker);
-    var tempPotMarker = L.circleMarker([surveyLocation.lat, surveyLocation.lng], {
-        radius: 10, color: '#d4a853', fillColor: '#d4a853', fillOpacity: 1, weight: 3
-    }).addTo(map);
-    
-    // Calculate proper bounds INCLUDING oval extents
+
+    // Build bounds
     var allPoints = [L.latLng(surveyLocation.lat, surveyLocation.lng)];
     for (var i = 0; i < hornets.length; i++) {
         var h = hornets[i];
@@ -765,31 +763,83 @@ function exportPDF() {
             allPoints.push(L.latLng(n.lat - ovalPad, n.lng + ovalPad));
         }
     }
-    
-    // Freeze the map size FIRST so fitBounds computes against the final viewport
-var mapEl = document.getElementById('map');
-var originalHeight = mapEl.style.height;
-mapEl.style.height = '350px';
-if (map) map.invalidateSize();
 
-setTimeout(function() {
-    // NOW fit bounds against the frozen container size
     if (allPoints.length > 1) {
-        map.fitBounds(L.latLngBounds(allPoints), { padding: [80, 80], maxZoom: 16 });
-    } else {
-        map.setView([surveyLocation.lat, surveyLocation.lng], 15);
+        map.fitBounds(L.latLngBounds(allPoints), {
+            padding: [60, 60], maxZoom: 16, animate: false
+        });
     }
-    
-    // Wait for tiles + markers to settle after the fit
+
+    // Wait for tiles to fully load, then stitch the map to a canvas
     setTimeout(function() {
-            // Hide UI elements for clean PDF
+        // Make sure all tiles are loaded before stitching
+        var pending = 0;
+        var done = false;
+        map.eachLayer(function(layer) {
+            if (layer instanceof L.TileLayer) {
+                // Force redraw to ensure tiles are fresh
+                layer.redraw();
+            }
+        });
+
+        // Give tiles 1.2s to finish loading
+        setTimeout(function() {
+            stitchAndCapture();
+        }, 1200);
+
+        function stitchAndCapture() {
+            // leaflet-image renders the current map view to a canvas,
+            // placing tiles at their exact pixel positions.
+            leafletImage(map, function(err, canvas) {
+                if (err || !canvas) {
+                    console.error('leaflet-image failed:', err);
+                    // Fallback: capture as-is
+                    runHtml2Canvas(null);
+                    return;
+                }
+
+                // Build an overlay <img> from the stitched canvas
+                var overlay = document.createElement('img');
+                overlay.src = canvas.toDataURL('image/png');
+                overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:1000;pointer-events:none;';
+                overlay.id = 'pdfMapOverlay';
+
+                var mapEl = document.getElementById('map');
+                var originalPosition = mapEl.style.position;
+                if (getComputedStyle(mapEl).position === 'static') {
+                    mapEl.style.position = 'relative';
+                }
+                mapEl.appendChild(overlay);
+
+                // Wait a tick for the img to paint, then run html2canvas
+                setTimeout(function() {
+                    runHtml2Canvas(function cleanup() {
+                        var ov = document.getElementById('pdfMapOverlay');
+                        if (ov) ov.remove();
+                        mapEl.style.position = originalPosition;
+                    });
+                }, 200);
+            });
+        }
+
+        function runHtml2Canvas(onDone) {
             var elementsToHide = [];
             var selectors = ['.bottom-bar', '#updateBanner', '.header'];
             selectors.forEach(function(sel) {
                 var el = document.querySelector(sel);
                 if (el) { el.style.display = 'none'; elementsToHide.push(el); }
             });
-            
+
+            // Temporarily hide Leaflet's own controls (zoom buttons) — they're inside the map div
+            var controls = document.querySelectorAll('.leaflet-control-container');
+            var controlsHidden = [];
+            controls.forEach(function(c) {
+                if (c.style.display !== 'none') {
+                    controlsHidden.push({ el: c, prev: c.style.display });
+                    c.style.display = 'none';
+                }
+            });
+
             html2canvas(document.body, {
                 scale: 2,
                 useCORS: true,
@@ -797,23 +847,21 @@ setTimeout(function() {
                 backgroundColor: '#f5f2e6',
                 logging: false
             }).then(function(canvas) {
-                // Restore UI
                 elementsToHide.forEach(function(el) { el.style.display = ''; });
-                mapEl.style.height = originalHeight;
-                if (map) map.invalidateSize();
-                
+                controlsHidden.forEach(function(c) { c.el.style.display = c.prev; });
+
                 var imgData = canvas.toDataURL('image/jpeg', 0.92);
                 var jsPDFConstructor = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
                 var pdf = new jsPDFConstructor('p', 'mm', 'a4');
                 var pdfWidth = pdf.internal.pageSize.getWidth();
                 var pdfHeight = pdf.internal.pageSize.getHeight();
-                
+
                 var imgWidth = canvas.width;
                 var imgHeight = canvas.height;
                 var ratio = imgWidth / imgHeight;
                 var renderWidth = pdfWidth - 10;
                 var renderHeight = renderWidth / ratio;
-                
+
                 if (renderHeight <= pdfHeight - 10) {
                     pdf.addImage(imgData, 'JPEG', 5, 5, renderWidth, renderHeight);
                 } else {
@@ -832,31 +880,34 @@ setTimeout(function() {
                         pageNum++;
                     }
                 }
-                
+
                 var pdfBlob = pdf.output('blob');
                 var filename = 'vespatimer_' + new Date().toISOString().slice(0, 10) + '.pdf';
                 dl(pdfBlob, filename);
                 showToast('✅ PDF: ' + filename);
-                
-                // Restore everything
+
+                if (onDone) onDone();
+
+                // Restore layers and view
                 setTimeout(function() {
                     if (osmForPdf) map.removeLayer(osmForPdf);
                     layersToRestore.forEach(function(layer) { layer.addTo(map); });
-                    if (tempPotMarker) map.removeLayer(tempPotMarker);
                     updatePotMarker();
+                    map.setView(savedCenter, savedZoom, { animate: false });
                     setTimeout(function() { map.fireEvent('moveend'); }, 100);
                 }, 500);
             }).catch(function(err) {
                 console.error('PDF generation failed:', err);
                 elementsToHide.forEach(function(el) { el.style.display = ''; });
-                mapEl.style.height = originalHeight;
-                if (tempPotMarker) map.removeLayer(tempPotMarker);
+                controlsHidden.forEach(function(c) { c.el.style.display = c.prev; });
+                if (onDone) onDone();
                 updatePotMarker();
+                map.setView(savedCenter, savedZoom, { animate: false });
                 showAlert('PDF failed', '❌');
                 setTimeout(function() { window.print(); }, 300);
             });
-        }, 400);
-    }, 1200);
+        }
+    }, 400);
 }
 function exportGPX(){closeModal('exportModal');var g='<?xml version="1.0"?><gpx version="1.1"><wpt lat="'+surveyLocation.lat+'" lon="'+surveyLocation.lng+'"><name>Pot</name></wpt>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)g+='<wpt lat="'+n.lat.toFixed(6)+'" lon="'+n.lng.toFixed(6)+'"><name>'+h.name+'</name></wpt>';}g+='</gpx>';dl(new Blob([g],{type:'application/gpx+xml'}),'vespatimer.gpx');}
 function exportKML(){closeModal('exportModal');var k='<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>Pot</name><Point><coordinates>'+surveyLocation.lng+','+surveyLocation.lat+',0</coordinates></Point></Placemark>';for(var i=0;i<hornets.length;i++){var h=hornets[i];if(!h.flights.length)continue;var d=getDist(getAvg(h));if(d<=0)continue;var n=getNestCoords(h);if(n)k+='<Placemark><name>'+h.name+'</name><Point><coordinates>'+n.lng.toFixed(6)+','+n.lat.toFixed(6)+',0</coordinates></Point></Placemark>';}k+='</Document></kml>';dl(new Blob([k],{type:'application/vnd.google-earth.kml+xml'}),'vespatimer.kml');}

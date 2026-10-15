@@ -1334,9 +1334,12 @@ function showUpdateBanner(reg){
   window.applyUpdate=function(btn){
     btn.textContent=t('updating');
     btn.disabled=true;
-    if(reg.waiting){reg.waiting.postMessage('SKIP_WAITING');}
+    // skipWaiting already ran during SW install → new SW is active.
+    // Network-first HTML ensures the next fetch gets the new page.
+    // Just reload.
+    setTimeout(function(){ window.location.reload(); }, 300);
   };
-}
+    }
 
 window.addEventListener('beforeunload',function(e){var hasActiveTimers=hornets.some(function(h){return h.timerRunning});var hasUnsavedData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasActiveTimers||hasUnsavedData){e.preventDefault();e.returnValue='Des données non sauvegardées existent!';return'Des données non sauvegardées existent!';}});
 
@@ -1351,7 +1354,7 @@ if('serviceWorker' in navigator){
         }
       });
     });
-    if(reg.waiting&&navigator.serviceWorker.controller){
+    if(reg.waiting && navigator.serviceWorker.controller){
       showUpdateBanner(reg);
     }
   }).catch(function(){});
@@ -1561,6 +1564,9 @@ function boot(){
   updateNotifButton();
   applyTranslations();
   renderAll();
+  if(hornets.some(function(h){return h.timerRunning})){
+    startTimerInterval();
+  }
   setTimeout(function(){
     initMap();
     setTimeout(function(){if(map)drawAnalysis();},800);

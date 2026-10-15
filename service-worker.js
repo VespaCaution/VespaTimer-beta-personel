@@ -1,7 +1,7 @@
 // VespaTimer v2.0 - Service Worker
 // IMPORTANT: Change CACHE_NAME on every deploy to trigger updates
 
-const CACHE_NAME = 'vespatimer-v2.0.0.0.0.0';
+const CACHE_NAME = 'vespatimer-v2.0.0.0.1';
 const MAP_TILE_CACHE = 'vespatimer-tiles-v1';
 
 const ASSETS_TO_CACHE = [
@@ -14,11 +14,15 @@ const ASSETS_TO_CACHE = [
   'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
+  'https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 ];
 
-// Install: cache assets, but DON'T call skipWaiting (wait for user)
+// Install: cache assets + skipWaiting so new SW activates immediately
 self.addEventListener('install', function(event) {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
       return cache.addAll(ASSETS_TO_CACHE);
@@ -28,7 +32,7 @@ self.addEventListener('install', function(event) {
   );
 });
 
-// Activate: clean up old caches
+// Activate: clean up old caches, take control of open clients
 self.addEventListener('activate', function(event) {
   event.waitUntil(
     caches.keys().then(function(cacheNames) {
@@ -45,13 +49,13 @@ self.addEventListener('activate', function(event) {
   );
 });
 
-// Fetch: serve from cache first, fallback to network
+// Fetch: network-first for HTML, cache-first for everything else
 self.addEventListener('fetch', function(event) {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith('http')) return;
 
   // Map tiles: separate cache with limit
-  if (event.request.url.includes('tile.openstreetmap.org')) {
+  if (event.request.url.includes('tile.openstreetmap.org') || event.request.url.includes('wmts.geo.admin.ch')) {
     event.respondWith(
       caches.open(MAP_TILE_CACHE).then(function(cache) {
         return cache.match(event.request).then(function(cached) {
@@ -59,7 +63,6 @@ self.addEventListener('fetch', function(event) {
           return fetch(event.request).then(function(response) {
             if (response.status === 200) {
               cache.put(event.request, response.clone());
-              // Limit tile cache to ~500 tiles
               cache.keys().then(function(keys) {
                 if (keys.length > 500) {
                   for (var i = 0; i < 100; i++) {
@@ -78,7 +81,29 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
-  // All other requests: cache first, then network
+  // HTML navigation: NETWORK FIRST, fall back to cache when offline
+  var isHtmlRequest = event.request.mode === 'navigate' ||
+                      event.request.url.endsWith('/') ||
+                      event.request.url.indexOf('index.html') !== -1;
+
+  if (isHtmlRequest) {
+    event.respondWith(
+      fetch(event.request).then(function(response) {
+        var responseClone = response.clone();
+        caches.open(CACHE_NAME).then(function(cache) {
+          cache.put(event.request, responseClone);
+        });
+        return response;
+      }).catch(function() {
+        return caches.match(event.request).then(function(cached) {
+          return cached || caches.match('./index.html');
+        });
+      })
+    );
+    return;
+  }
+
+  // Everything else: cache-first
   event.respondWith(
     caches.match(event.request).then(function(cached) {
       if (cached) return cached;
@@ -92,16 +117,13 @@ self.addEventListener('fetch', function(event) {
         });
         return response;
       }).catch(function() {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
         return new Response('Offline', { status: 503 });
       });
     })
   );
 });
 
-// Message: receive SKIP_WAITING from page
+// Message: receive SKIP_WAITING from page (kept for compat)
 self.addEventListener('message', function(event) {
   if (event.data === 'SKIP_WAITING') {
     self.skipWaiting();

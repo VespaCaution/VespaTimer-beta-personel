@@ -4,7 +4,7 @@
   "description": "Assistant digital pour relevés Pot-à-Mèche et triangulation de nids de frelons asiatiques",
   "start_url": "./index.html",
   "scope": "./",
-  "id": "/",
+  "id": "vespatimer-app",
   "display": "standalone",
   "display_override": ["standalone", "fullscreen"],
   "background_color": "#f5f2e6",

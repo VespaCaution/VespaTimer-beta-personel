@@ -235,14 +235,15 @@
             </div>
             
             <div id="contactStepSubject" style="display:none;">
-                <p style="font-weight:600;margin-bottom:12px;" data-lang="contact_subject_q">Quel sujet ?</p>
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="bug" onclick="contactNext('bug')"><span data-lang="contact_s_bug">Signaler un bug</span></label>
-                <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="question" onclick="contactNext('question')"><span data-lang="contact_s_question">Poser une question</span></label>
-                <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="beta" onclick="contactNext('beta')"><span data-lang="contact_s_beta">Demander accès à la version BÊTA</span></label>
-                <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="feedback" onclick="contactNext('feedback')"><span data-lang="contact_s_feedback">Faire un retour</span></label>
-                <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="autre" onclick="contactAutreFrom='subject';contactNext('autre')"><span data-lang="contact_s_autre">Autre</span></label>    
-                </div>
+    <p style="font-weight:600;margin-bottom:12px;" data-lang="contact_subject_q">Quel sujet ?</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+        <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="bug" onclick="contactNext('bug')"><span data-lang="contact_s_bug">Signaler un bug</span></label>
+        <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="question" onclick="contactNext('question')"><span data-lang="contact_s_question">Poser une question</span></label>
+        <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="beta" onclick="contactNext('beta')"><span data-lang="contact_s_beta">Demander accès à la version BÊTA</span></label>
+        <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="feedback" onclick="contactNext('feedback')"><span data-lang="contact_s_feedback">Faire un retour</span></label>
+        <label style="display:flex;align-items:center;gap:10px;background:#f9f4e8;padding:14px;border-radius:12px;cursor:pointer;"><input type="radio" name="subject" value="autre" onclick="contactAutreFrom='subject';contactNext('autre')"><span data-lang="contact_s_autre">Autre</span></label>
+    </div>
+    <button onclick="contactBack('reason')" style="width:100%;padding:10px;margin-top:8px;background:none;border:none;color:var(--text);cursor:pointer;" data-lang="contact_back">← Retour</button>
             </div>
             
             <div id="contactStepBug" style="display:none;">

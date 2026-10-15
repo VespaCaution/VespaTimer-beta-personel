@@ -417,7 +417,22 @@ function createOval(center,dirDeg){var pts=[];var hw=100,hh=50;var dirRad=(dirDe
 
 function saveAll(){try{localStorage.setItem('vd_v2',JSON.stringify({hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo,collapsedCards:collapsedCards}));}catch(e){}}
 function getHist(){try{var data=localStorage.getItem('vh_v2');if(!data)return[];var parsed=JSON.parse(data);if(Array.isArray(parsed))return parsed;return[];}catch(e){return[];}}
-function loadAll(){try{var d=JSON.parse(localStorage.getItem('vd_v2'));if(d){if(d.hornets)hornets=d.hornets;if(d.surveyLocation)surveyLocation=d.surveyLocation;inspectorName=d.inspectorName||'';notes=d.notes||'';if(d.personalInfo)personalInfo=d.personalInfo;if(d.collapsedCards)collapsedCards=d.collapsedCards;}}catch(e){}var sl=localStorage.getItem('vl_v2');if(sl&&translations[sl])currentLang=sl;notificationsEnabled=localStorage.getItem('notif_enabled')==='true';document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';if(!hornets.length)hornets.push(createHornet('Frelon 1'));var savedResumed=localStorage.getItem('resumed_idx');if(savedResumed){resumedFromIndex=parseInt(savedResumed);}}
+function loadAll(){
+  // ---- v1.4 → v2.0 migration (one-time) ----
+  try {
+    var hasV2Data = localStorage.getItem('vd_v2') || localStorage.getItem('vh_v2') || localStorage.getItem('vl_v2');
+    if (!hasV2Data) {
+      var oldVd = localStorage.getItem('vd');
+      var oldVh = localStorage.getItem('vh');
+      var oldVl = localStorage.getItem('vl');
+      if (oldVd) localStorage.setItem('vd_v2', oldVd);
+      if (oldVh) localStorage.setItem('vh_v2', oldVh);
+      if (oldVl) localStorage.setItem('vl_v2', oldVl);
+    }
+  } catch(e) {}
+  // ---- end migration ----
+  
+  try{var d=JSON.parse(localStorage.getItem('vd_v2'));if(d){if(d.hornets)hornets=d.hornets;if(d.surveyLocation)surveyLocation=d.surveyLocation;inspectorName=d.inspectorName||'';notes=d.notes||'';if(d.personalInfo)personalInfo=d.personalInfo;if(d.collapsedCards)collapsedCards=d.collapsedCards;}}catch(e){}var sl=localStorage.getItem('vl_v2');if(sl&&translations[sl])currentLang=sl;notificationsEnabled=localStorage.getItem('notif_enabled')==='true';document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';if(!hornets.length)hornets.push(createHornet('Frelon 1'));var savedResumed=localStorage.getItem('resumed_idx');if(savedResumed){resumedFromIndex=parseInt(savedResumed);}}
 function saveHist(){var hist=[];try{hist=JSON.parse(localStorage.getItem('vh_v2')||'[]');}catch(e){}var newEntry={date:new Date().toISOString(),location:{lat:surveyLocation.lat,lng:surveyLocation.lng,name:surveyLocation.name},hornets:hornets.map(function(h){return{name:h.name,direction:h.direction,flights:h.flights.slice(),color:h.color};}),notes:notes,inspectorName:inspectorName,personalInfo:personalInfo};if(resumedFromIndex>=0&&resumedFromIndex<hist.length){hist[resumedFromIndex]=newEntry;}else{hist.push(newEntry);}if(hist.length>MAX_HISTORY)hist=hist.slice(-MAX_HISTORY);var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;hist=hist.filter(function(e){return new Date(e.date)>new Date(cutoff);});try{localStorage.setItem('vh_v2',JSON.stringify(hist));}catch(e){}localStorage.setItem('resumed_idx',resumedFromIndex);sendNotification(t('pot_saved_notif'),''+(newEntry.location.name||t('no_name'))+' • '+(newEntry.hornets?newEntry.hornets.length:0)+' '+t('hornets'));checkHistoryExpiry();}
 
 function showAlert(message,icon){document.getElementById('customAlertMessage').textContent=message;document.getElementById('customAlertIcon').textContent=icon||'⚠️';document.getElementById('customAlertOverlay').style.display='flex';}

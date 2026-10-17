@@ -1,0 +1,8 @@
+{
+  "name": "vespatimer",
+  "version": "2.0.0",
+  "dependencies": {
+    "@netlify/identity": "^1.0.0",
+    "@netlify/database": "^1.0.0"
+  }
+}

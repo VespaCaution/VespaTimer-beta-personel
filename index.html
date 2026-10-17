@@ -23,19 +23,54 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
     <title>VespaTimer</title>
     
-    <!-- Netlify Identity (Login) -->
-    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-    <script>
-      if (window.netlifyIdentity) {
-        window.netlifyIdentity.on("init", user => {
-          if (!user) {
-            window.netlifyIdentity.on("login", () => {
-              document.location.href = "/"; 
-            });
-          }
-        });
+<!-- Netlify Identity (Login) -->
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script>
+  if (window.netlifyIdentity) {
+    window.netlifyIdentity.on("init", user => {
+      if (user) {
+        // User is already logged in on page load. Pull data silently.
+        pullDataFromServer();
       }
-    </script>
+    });
+
+    window.netlifyIdentity.on("login", user => {
+      // User just clicked 'Login'. Pull data, then close the modal.
+      pullDataFromServer();
+      window.netlifyIdentity.close();
+    });
+  }
+
+  // The function that fetches data without reloading the page
+  function pullDataFromServer() {
+    fetch('/.netlify/functions/load-data')
+      .then(res => res.json())
+      .then(data => {
+        if (data.pot) {
+          // Overwrite local variables with server data
+          hornets = data.pot.hornets || [];
+          surveyLocation = data.pot.surveyLocation || {lat:46.8, lng:6.8, name:''};
+          inspectorName = data.pot.inspectorName || '';
+          notes = data.pot.notes || '';
+          personalInfo = data.pot.personalInfo || {firstName:'', lastName:'', phone:''};
+          
+          if (data.history) {
+            localStorage.setItem('vh', JSON.stringify(data.history));
+          }
+          
+          // Save to local storage so it persists offline
+          saveAll(); 
+          
+          // Redraw the UI with the new data
+          renderAll(); 
+          if(map) drawAnalysis();
+          
+          showToast('☁️ Données synchronisées depuis le serveur');
+        }
+      })
+      .catch(err => console.log('Load failed', err));
+  }
+</script>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

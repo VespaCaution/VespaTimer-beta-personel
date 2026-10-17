@@ -22,6 +22,21 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
     <title>VespaTimer</title>
+    
+    <!-- Netlify Identity (Login) -->
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <script>
+      if (window.netlifyIdentity) {
+        window.netlifyIdentity.on("init", user => {
+          if (!user) {
+            window.netlifyIdentity.on("login", () => {
+              document.location.href = "/"; 
+            });
+          }
+        });
+      }
+    </script>
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -301,11 +316,14 @@
 
 <div class="header" style="justify-content:space-between;align-items:center;">
     <h1><a onclick="openSubPage('siteScreen')" style="cursor:pointer;">🐝 VespaTimer</a> <span style="font-size:0.8rem;color:#888;">v2.0</span></h1>
-    <div class="flex-row" style="gap:12px;">
+    <div class="flex-row" style="gap:12px; align-items:center;">
+        <!-- NEW LOGIN BUTTON -->
+        <button onclick="window.netlifyIdentity ? window.netlifyIdentity.open() : alert('Mode hors-ligne')" style="background:var(--gold); color:white; padding:6px 12px; border-radius:20px; font-size:0.8rem; border:none; font-weight:bold;">👤 Se connecter</button>
+        
         <a href="https://youtube.com/@hornetjunkie" target="_blank" style="text-decoration:none;color:#FF0000;font-size:1.6rem;padding:4px;" title="YouTube"><i class="fab fa-youtube"></i></a>
         <a href="https://whatsapp.com/channel/0029VbDichqDuMRfA1Yitr2b" target="_blank" style="text-decoration:none;color:#25D366;font-size:1.6rem;padding:4px;" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
     </div>
-                    </div>
+</div>
     <div class="card">
     <h2>👤 <span data-lang="personal_info">Infos personnelles</span></h2>
     <div class="grid-2">
@@ -405,6 +423,35 @@ personal_info:'Infurmaziuns persunalas',first_name_placeholder:'Prenum',last_nam
 
 function t(key){return(translations[currentLang]&&translations[currentLang][key])||key;}
 function applyTranslations(){var els=document.querySelectorAll('[data-lang]');for(var i=0;i<els.length;i++){var key=els[i].getAttribute('data-lang');if(key==='about_footer2'){els[i].innerHTML=t(key);}else{els[i].textContent=t(key);}}var phs=document.querySelectorAll('[data-lang-placeholder]');for(var j=0;j<phs.length;j++)phs[j].placeholder=t(phs[j].getAttribute('data-lang-placeholder'));}
+window.netlifyIdentity.on("login", user => {
+  // 1. Fetch data from server
+  fetch('/.netlify/functions/load-data')
+    .then(res => res.json())
+    .then(data => {
+      if (data.pot) {
+        // Apply server pot to local state
+        hornets = data.pot.hornets || [];
+        surveyLocation = data.pot.surveyLocation || {lat:46.8, lng:6.8, name:''};
+        inspectorName = data.pot.inspectorName || '';
+        notes = data.pot.notes || '';
+        personalInfo = data.pot.personalInfo || {firstName:'', lastName:'', phone:''};
+        
+        // Apply server history to local storage
+        if (data.history) {
+          localStorage.setItem('vh', JSON.stringify(data.history));
+        }
+        
+        saveAll(); // Save locally
+        renderAll(); // Redraw UI
+        if(map) drawAnalysis();
+        showToast('☁️ Données synchronisées depuis le serveur');
+      }
+    })
+    .catch(err => console.log('Load failed', err));
+
+  // 2. Reload page to show data
+  window.location.reload(); 
+});
 
 function debouncedSave(){clearTimeout(debounceTimer);debounceTimer=setTimeout(saveAll,500);}
 function createHornet(name){var usedColors=hornets.filter(function(h){return h.color}).map(function(h){return h.color});var assignedColor=null;for(var j=0;j<COLORS.length;j++){if(usedColors.indexOf(COLORS[j])===-1){assignedColor=COLORS[j];break;}}if(!assignedColor)assignedColor=COLORS[0];return{id:Date.now()+Math.random(),name:name||'Frelon 1',direction:0,flights:[],timerRunning:false,timerStart:null,elapsedSeconds:0,color:assignedColor};}
@@ -425,6 +472,20 @@ function saveAll(){
       personalInfo: personalInfo,
       collapsedCards: collapsedCards
     }));
+    
+    // --- AUTO SYNC TO NETLIFY ---
+    if (window.netlifyIdentity && window.netlifyIdentity.currentUser()) {
+      fetch("/.netlify/functions/sync-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pot: { hornets, surveyLocation, inspectorName, notes, personalInfo, collapsedCards },
+          newHistoryEntries: getHist()
+        })
+      }).catch(function(err){ console.log("Sync failed, offline mode active"); });
+    }
+    // ----------------------------
+    
   } catch(e) {}
 }
 function getHist(){
@@ -823,7 +884,7 @@ function drawAnalysis(histData){
     mapLines.push(L.polyline([pot,nestPt],{color:c,weight:3,dashArray:'5,5'}).addTo(map));
     mapLines.push(L.polygon(createOval(nestPt,nd.direction),{color:c,fillOpacity:0.15,weight:1.5,dashArray:'4,4'}).addTo(map));
     var m=L.circleMarker(nestPt,{radius:7,color:c,fillOpacity:0.7}).addTo(map);
-    m.bindPopup('<b>'+h.name+'</b><br>~'+nd.distance.toFixed(0)+'m<br>🧭 '+h.direction+'°<br>⬭ '+t('oval_tooltip'));
+    m.bindPopup('<b>'+h.name+'</b><br>~'+nd.distance.toFixed(0)+'m<br>🧭 '+h.direction+'°<br>⬭ '+t('oval_tooltip'), { autoPanPadding: [50, 50] });
     mapLines.push(m);
     preds.push({name:h.name,dist:nd.distance});
   }

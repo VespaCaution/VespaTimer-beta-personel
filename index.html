@@ -28,26 +28,53 @@
 <script>
   if (window.netlifyIdentity) {
     window.netlifyIdentity.on("init", user => {
-      if (user) {
-        // User is already logged in on page load. Pull data silently.
-        pullDataFromServer();
-      }
+      updateAuthUI(user);
+      if (user) pullDataFromServer();
     });
 
     window.netlifyIdentity.on("login", user => {
-      // User just clicked 'Login'. Pull data, then close the modal.
+      updateAuthUI(user);
       pullDataFromServer();
       window.netlifyIdentity.close();
     });
+
+    window.netlifyIdentity.on("logout", () => {
+      updateAuthUI(null);
+      showToast("Déconnecté. Mode local activé.");
+    });
   }
 
-  // The function that fetches data without reloading the page
+  function updateAuthUI(user) {
+    var btn = document.getElementById('loginBtn');
+    var status = document.getElementById('accountStatus');
+    if (!btn || !status) return;
+    
+    if (user) {
+      btn.textContent = "Se déconnecter";
+      btn.style.background = "#c47b6b"; // Red color
+      status.innerHTML = "Connecté en tant que <strong>" + (user.user_metadata.full_name || user.email) + "</strong><br><small>Historique illimité actif ☁️</small>";
+    } else {
+      btn.textContent = "Se connecter / Créer un compte";
+      btn.style.background = "var(--gold)";
+      status.textContent = "Non connecté (Mode local : max 200 entrées / 90 jours)";
+    }
+  }
+
+  function handleAuthClick() {
+    if (!window.netlifyIdentity) return alert("Mode hors ligne : connexion impossible");
+    var user = window.netlifyIdentity.currentUser();
+    if (user) {
+      window.netlifyIdentity.logout();
+    } else {
+      window.netlifyIdentity.open();
+    }
+  }
+
   function pullDataFromServer() {
     fetch('/.netlify/functions/load-data')
       .then(res => res.json())
       .then(data => {
         if (data.pot) {
-          // Overwrite local variables with server data
           hornets = data.pot.hornets || [];
           surveyLocation = data.pot.surveyLocation || {lat:46.8, lng:6.8, name:''};
           inspectorName = data.pot.inspectorName || '';
@@ -58,14 +85,10 @@
             localStorage.setItem('vh', JSON.stringify(data.history));
           }
           
-          // Save to local storage so it persists offline
           saveAll(); 
-          
-          // Redraw the UI with the new data
           renderAll(); 
           if(map) drawAnalysis();
-          
-          showToast('☁️ Données synchronisées depuis le serveur');
+          showToast('☁️ Données synchronisées');
         }
       })
       .catch(err => console.log('Load failed', err));
@@ -170,6 +193,13 @@
             .badge { font-size:0.65rem; padding:2px 8px; }
             .flight-item { font-size:0.75rem; padding:2px 6px; }
             hr { margin:6px 0 !important; }
+            /* Fix Netlify Identity Modal Z-Index */
+.netlify-identity-modal {
+    z-index: 999999 !important;
+}
+.netlify-identity-modal-overlay {
+    z-index: 999998 !important;
+        }
         }
     </style>
 </head>
@@ -352,9 +382,6 @@
 <div class="header" style="justify-content:space-between;align-items:center;">
     <h1><a onclick="openSubPage('siteScreen')" style="cursor:pointer;">🐝 VespaTimer</a> <span style="font-size:0.8rem;color:#888;">v2.0</span></h1>
     <div class="flex-row" style="gap:12px; align-items:center;">
-        <!-- NEW LOGIN BUTTON -->
-        <button onclick="window.netlifyIdentity ? window.netlifyIdentity.open() : alert('Mode hors-ligne')" style="background:var(--gold); color:white; padding:6px 12px; border-radius:20px; font-size:0.8rem; border:none; font-weight:bold;">👤 Se connecter</button>
-        
         <a href="https://youtube.com/@hornetjunkie" target="_blank" style="text-decoration:none;color:#FF0000;font-size:1.6rem;padding:4px;" title="YouTube"><i class="fab fa-youtube"></i></a>
         <a href="https://whatsapp.com/channel/0029VbDichqDuMRfA1Yitr2b" target="_blank" style="text-decoration:none;color:#25D366;font-size:1.6rem;padding:4px;" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
     </div>
@@ -409,8 +436,31 @@
 
 <div id="updateBanner"></div>
 
-<div class="modal-overlay" id="optionsModal"><div class="modal" style="max-width:550px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h2 style="margin:0;">⚙️ <span data-lang="options">Options</span></h2><button class="modal-close" onclick="closeModal('optionsModal')" style="position:static;">✕</button></div><div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;"><p><strong data-lang="language">Langue:</strong> <button class="btn-gold btn-sm" onclick="openLangModal()">🌍 <span data-lang="language">Langue</span></button></p><button onclick="toggleNotifications()">🔔 <span id="notifBtnLabel">Notifications</span></button><button onclick="closeModal('optionsModal');openModal('newsModal')">📰 <span data-lang="news">Nouveautés</span></button><button onclick="closeModal('optionsModal');openModal('aboutModal')">ℹ️ <span data-lang="about_btn">À propos</span></button><button onclick="closeModal('optionsModal');openSubPage('siteScreen');setTimeout(function(){showSiteTab('contact');},100)">📧 <span data-lang="contact">Contact</span></button><button class="btn-gold" id="installBtn2" style="display:none;" onclick="installPWA()">📲 <span data-lang="install_app">Installer l'app</span></button></div></div></div>
+<div class="modal-overlay" id="optionsModal">
+    <div class="modal" style="max-width:550px;padding-top:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+            <h2 style="margin:0;">⚙️ <span data-lang="options">Options</span></h2>
+            <button class="modal-close" onclick="closeModal('optionsModal')" style="position:static;">✕</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+            
+            <!-- ACCOUNT SECTION -->
+            <div style="background:#f9f4e8; padding:12px; border-radius:12px; margin-bottom:8px;">
+                <p style="font-weight:bold; margin-bottom:8px;">👤 <span id="accountStatus">Non connecté (Mode local)</span></p>
+                <button class="btn-gold btn-sm" id="loginBtn" onclick="handleAuthClick()" style="width:100%;">Se connecter / Créer un compte</button>
+            </div>
+            <!-- END ACCOUNT SECTION -->
 
+            <p><strong data-lang="language">Langue:</strong> <button class="btn-gold btn-sm" onclick="openLangModal()">🌍 <span data-lang="language">Langue</span></button></p>
+            <button onclick="toggleNotifications()">🔔 <span id="notifBtnLabel">Notifications</span></button>
+            <button onclick="closeModal('optionsModal');openModal('newsModal')">📰 <span data-lang="news">Nouveautés</span></button>
+            <button onclick="closeModal('optionsModal');openModal('aboutModal')">ℹ️ <span data-lang="about_btn">À propos</span></button>
+            <button onclick="closeModal('optionsModal');openSubPage('siteScreen');setTimeout(function(){showSiteTab('contact');},100)">📧 <span data-lang="contact">Contact</span></button>
+            <button class="btn-gold" id="installBtn2" style="display:none;" onclick="installPWA()">📲 <span data-lang="install_app">Installer l'app</span></button>
+        </div>
+    </div>
+</div>
+    
 <div class="modal-overlay" id="newsModal"><div class="modal" style="max-width:550px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h2 style="margin:0;">📰 <span data-lang="news">Nouveautés</span></h2><button class="modal-close" onclick="closeModal('newsModal');openModal('optionsModal')" style="position:static;">✕</button></div><div style="font-size:0.9rem;line-height:1.7;margin-top:10px;"><p data-lang="news_text">Bienvenue sur la version 2.0 de VespaTimer !</p></div></div></div>
 
 <div class="modal-overlay" id="exportModal"><div class="modal" style="max-width:550px;padding-top:10px;"><div style="display:flex;align-items:center;justify-content:space-between;"><h2 style="margin:0;">📤 <span data-lang="export_import">Export / Import</span></h2><button class="modal-close" onclick="closeModal('exportModal')" style="position:static;">✕</button></div><div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;"><button onclick="exportPDF()">📄 PDF</button><button onclick="exportHistory()">📋 <span data-lang="export_history">Exporter historique</span></button><button onclick="exportJSON()">📤 JSON</button><button onclick="exportGPX()">📍 GPX</button><button onclick="exportKML()">🌍 KML</button><hr><button class="btn-gold" onclick="document.getElementById('importFile').click()">📥 <span data-lang="import_btn">Importer</span> (JSON)</button><button class="btn-gold" onclick="document.getElementById('importHistFile').click()">📋 <span data-lang="import_history">Importer historique</span></button><button class="btn-gold" onclick="openVespafinderModal()">🔗 <span data-lang="import_vespafinder">Importer Vespafinder</span></button><input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)"><input type="file" id="importHistFile" accept=".json" style="display:none;" onchange="importHistory(event)"><hr><button class="btn-red" onclick="resetAll()">🔄 <span data-lang="reset_btn">Nouveau / Sauvegarder</span></button></div></div></div>
@@ -500,39 +550,42 @@ function getHist(){
     var data = localStorage.getItem('vh');
     if (!data) return [];
     var parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) return parsed;
-    return [];
+    if (!Array.isArray(parsed)) return [];
+    
+    // If logged in, return everything
+    if (window.netlifyIdentity && window.netlifyIdentity.currentUser()) {
+      return parsed; 
+    }
+    
+    // If not logged in, apply 90-day filter
+    var cutoff = Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000;
+    return parsed.filter(function(e){ return new Date(e.date) > new Date(cutoff); });
   } catch(e) { return []; }
 }
 function saveHist(){
   var hist = [];
   try { hist = JSON.parse(localStorage.getItem('vh') || '[]'); } catch(e) {}
-  var newEntry = {
-    date: new Date().toISOString(),
-    location: { lat: surveyLocation.lat, lng: surveyLocation.lng, name: surveyLocation.name },
-    hornets: hornets.map(function(h){
-      return {
-        name: h.name,
-        direction: h.direction,
-        flights: h.flights.slice(),
-        color: h.color
-      };
-    }),
-    notes: notes,
-    inspectorName: inspectorName,
-    personalInfo: personalInfo
-  };
+  
+  // (Keep the existing newEntry creation code here...)
+  var newEntry = { /* ... */ };
+  
   if (resumedFromIndex >= 0 && resumedFromIndex < hist.length) {
     hist[resumedFromIndex] = newEntry;
   } else {
     hist.push(newEntry);
   }
-  if (hist.length > MAX_HISTORY) hist = hist.slice(-MAX_HISTORY);
-  var cutoff = Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000;
-  hist = hist.filter(function(e){ return new Date(e.date) > new Date(cutoff); });
+  
+  // ONLY cap at 200 and 90-days if NOT logged in
+  var isLoggedIn = window.netlifyIdentity && window.netlifyIdentity.currentUser();
+  if (!isLoggedIn) {
+    if (hist.length > MAX_HISTORY) hist = hist.slice(-MAX_HISTORY);
+    var cutoff = Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000;
+    hist = hist.filter(function(e){ return new Date(e.date) > new Date(cutoff); });
+  }
+  
   try { localStorage.setItem('vh', JSON.stringify(hist)); } catch(e) {}
   localStorage.setItem('resumed_idx', resumedFromIndex);
-  sendNotification(t('pot_saved_notif'), '' + (newEntry.location.name || t('no_name')) + ' • ' + (newEntry.hornets ? newEntry.hornets.length : 0) + ' ' + t('hornets'));
+  sendNotification(t('pot_saved_notif'), /* ... */);
   checkHistoryExpiry();
 }
 function loadAll(){
@@ -607,6 +660,7 @@ function deleteHistEntry(index){
   localStorage.setItem('vh', JSON.stringify(hist));
   showHistory();
   showUndoButton();
+  saveAll(); // <--- ADD THIS LINE
 }
     
 function resumeHistEntryByIndex(index){

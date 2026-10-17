@@ -121,6 +121,18 @@
             .flight-item { font-size:0.75rem; padding:2px 6px; }
             hr { margin:6px 0 !important; }
         }
+        <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script>
+  if (window.netlifyIdentity) {
+    window.netlifyIdentity.on("init", user => {
+      if (!user) {
+        window.netlifyIdentity.on("login", () => {
+          document.location.href = "/"; // Reload after login
+        });
+      }
+    });
+  }
+</script>
     </style>
 </head>
 <body>
@@ -301,11 +313,14 @@
 
 <div class="header" style="justify-content:space-between;align-items:center;">
     <h1><a onclick="openSubPage('siteScreen')" style="cursor:pointer;">🐝 VespaTimer</a> <span style="font-size:0.8rem;color:#888;">v2.0</span></h1>
-    <div class="flex-row" style="gap:12px;">
+    <div class="flex-row" style="gap:12px; align-items:center;">
+        <!-- NEW LOGIN BUTTON -->
+        <button onclick="window.netlifyIdentity ? window.netlifyIdentity.open() : alert('Mode hors-ligne')" style="background:var(--gold); color:white; padding:6px 12px; border-radius:20px; font-size:0.8rem; border:none; font-weight:bold;">👤 Se connecter</button>
+        
         <a href="https://youtube.com/@hornetjunkie" target="_blank" style="text-decoration:none;color:#FF0000;font-size:1.6rem;padding:4px;" title="YouTube"><i class="fab fa-youtube"></i></a>
         <a href="https://whatsapp.com/channel/0029VbDichqDuMRfA1Yitr2b" target="_blank" style="text-decoration:none;color:#25D366;font-size:1.6rem;padding:4px;" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
     </div>
-                    </div>
+</div>
     <div class="card">
     <h2>👤 <span data-lang="personal_info">Infos personnelles</span></h2>
     <div class="grid-2">
@@ -415,7 +430,32 @@ function getNestCoordsForHornet(h,loc){var d=getDist(getAvg(h));if(d<=0)return n
 function getNestCoords(h){return getNestCoordsForHornet(h,surveyLocation);}
 function createOval(center,dirDeg){var pts=[];var hw=100,hh=50;var dirRad=(dirDeg*Math.PI)/180;var perpRad=dirRad+Math.PI/2;for(var i=0;i<64;i++){var angle=(i/64)*2*Math.PI;var rx=hh*Math.cos(angle);var ry=hw*Math.sin(angle);pts.push(L.latLng(center.lat+(rx/111320)*Math.cos(dirRad)-(ry/111320)*Math.cos(perpRad),center.lng+(rx/(111320*Math.cos(center.lat*Math.PI/180)))*Math.sin(dirRad)-(ry/(111320*Math.cos(center.lat*Math.PI/180)))*Math.sin(perpRad)));}return pts;}
 
-function saveAll(){try{localStorage.setItem('vd_v2',JSON.stringify({hornets:hornets,surveyLocation:surveyLocation,inspectorName:inspectorName,notes:notes,personalInfo:personalInfo,collapsedCards:collapsedCards}));}catch(e){}}
+function saveAll(){
+  try {
+    localStorage.setItem('vd', JSON.stringify({
+      hornets: hornets,
+      surveyLocation: surveyLocation,
+      inspectorName: inspectorName,
+      notes: notes,
+      personalInfo: personalInfo,
+      collapsedCards: collapsedCards
+    }));
+    
+    // --- AUTO SYNC TO NETLIFY ---
+    if (window.netlifyIdentity && window.netlifyIdentity.currentUser()) {
+      fetch("/.netlify/functions/sync-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pot: { hornets, surveyLocation, inspectorName, notes, personalInfo, collapsedCards },
+          newHistoryEntries: getHist()
+        })
+      }).catch(function(err){ console.log("Sync failed, offline mode active"); });
+    }
+    // ----------------------------
+    
+  } catch(e) {}
+}
 function getHist(){try{var data=localStorage.getItem('vh_v2');if(!data)return[];var parsed=JSON.parse(data);if(Array.isArray(parsed))return parsed;return[];}catch(e){return[];}}
 function loadAll(){
   // ---- v1.4 → v2.0 migration (one-time) ----

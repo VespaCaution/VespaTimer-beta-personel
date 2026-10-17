@@ -22,21 +22,6 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
     <title>VespaTimer</title>
-    
-    <!-- Netlify Identity (Login) -->
-    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-    <script>
-      if (window.netlifyIdentity) {
-        window.netlifyIdentity.on("init", user => {
-          if (!user) {
-            window.netlifyIdentity.on("login", () => {
-              document.location.href = "/"; 
-            });
-          }
-        });
-      }
-    </script>
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -316,14 +301,11 @@
 
 <div class="header" style="justify-content:space-between;align-items:center;">
     <h1><a onclick="openSubPage('siteScreen')" style="cursor:pointer;">🐝 VespaTimer</a> <span style="font-size:0.8rem;color:#888;">v2.0</span></h1>
-    <div class="flex-row" style="gap:12px; align-items:center;">
-        <!-- NEW LOGIN BUTTON -->
-        <button onclick="window.netlifyIdentity ? window.netlifyIdentity.open() : alert('Mode hors-ligne')" style="background:var(--gold); color:white; padding:6px 12px; border-radius:20px; font-size:0.8rem; border:none; font-weight:bold;">👤 Se connecter</button>
-        
+    <div class="flex-row" style="gap:12px;">
         <a href="https://youtube.com/@hornetjunkie" target="_blank" style="text-decoration:none;color:#FF0000;font-size:1.6rem;padding:4px;" title="YouTube"><i class="fab fa-youtube"></i></a>
         <a href="https://whatsapp.com/channel/0029VbDichqDuMRfA1Yitr2b" target="_blank" style="text-decoration:none;color:#25D366;font-size:1.6rem;padding:4px;" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
     </div>
-</div>
+                    </div>
     <div class="card">
     <h2>👤 <span data-lang="personal_info">Infos personnelles</span></h2>
     <div class="grid-2">
@@ -443,41 +425,71 @@ function saveAll(){
       personalInfo: personalInfo,
       collapsedCards: collapsedCards
     }));
-    
-    // --- AUTO SYNC TO NETLIFY ---
-    if (window.netlifyIdentity && window.netlifyIdentity.currentUser()) {
-      fetch("/.netlify/functions/sync-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pot: { hornets, surveyLocation, inspectorName, notes, personalInfo, collapsedCards },
-          newHistoryEntries: getHist()
-        })
-      }).catch(function(err){ console.log("Sync failed, offline mode active"); });
-    }
-    // ----------------------------
-    
   } catch(e) {}
 }
-function getHist(){try{var data=localStorage.getItem('vh_v2');if(!data)return[];var parsed=JSON.parse(data);if(Array.isArray(parsed))return parsed;return[];}catch(e){return[];}}
-function loadAll(){
-  // ---- v1.4 → v2.0 migration (one-time) ----
+function getHist(){
   try {
-    var hasV2Data = localStorage.getItem('vd_v2') || localStorage.getItem('vh_v2') || localStorage.getItem('vl_v2');
-    if (!hasV2Data) {
-      var oldVd = localStorage.getItem('vd');
-      var oldVh = localStorage.getItem('vh');
-      var oldVl = localStorage.getItem('vl');
-      if (oldVd) localStorage.setItem('vd_v2', oldVd);
-      if (oldVh) localStorage.setItem('vh_v2', oldVh);
-      if (oldVl) localStorage.setItem('vl_v2', oldVl);
+    var data = localStorage.getItem('vh');
+    if (!data) return [];
+    var parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) return parsed;
+    return [];
+  } catch(e) { return []; }
+}
+function saveHist(){
+  var hist = [];
+  try { hist = JSON.parse(localStorage.getItem('vh') || '[]'); } catch(e) {}
+  var newEntry = {
+    date: new Date().toISOString(),
+    location: { lat: surveyLocation.lat, lng: surveyLocation.lng, name: surveyLocation.name },
+    hornets: hornets.map(function(h){
+      return {
+        name: h.name,
+        direction: h.direction,
+        flights: h.flights.slice(),
+        color: h.color
+      };
+    }),
+    notes: notes,
+    inspectorName: inspectorName,
+    personalInfo: personalInfo
+  };
+  if (resumedFromIndex >= 0 && resumedFromIndex < hist.length) {
+    hist[resumedFromIndex] = newEntry;
+  } else {
+    hist.push(newEntry);
+  }
+  if (hist.length > MAX_HISTORY) hist = hist.slice(-MAX_HISTORY);
+  var cutoff = Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000;
+  hist = hist.filter(function(e){ return new Date(e.date) > new Date(cutoff); });
+  try { localStorage.setItem('vh', JSON.stringify(hist)); } catch(e) {}
+  localStorage.setItem('resumed_idx', resumedFromIndex);
+  sendNotification(t('pot_saved_notif'), '' + (newEntry.location.name || t('no_name')) + ' • ' + (newEntry.hornets ? newEntry.hornets.length : 0) + ' ' + t('hornets'));
+  checkHistoryExpiry();
+}
+function loadAll(){
+  try {
+    var d = JSON.parse(localStorage.getItem('vd'));
+    if (d) {
+      if (d.hornets) hornets = d.hornets;
+      if (d.surveyLocation) surveyLocation = d.surveyLocation;
+      inspectorName = d.inspectorName || '';
+      notes = d.notes || '';
+      if (d.personalInfo) personalInfo = d.personalInfo;
+      if (d.collapsedCards) collapsedCards = d.collapsedCards;
     }
   } catch(e) {}
-  // ---- end migration ----
   
-  try{var d=JSON.parse(localStorage.getItem('vd_v2'));if(d){if(d.hornets)hornets=d.hornets;if(d.surveyLocation)surveyLocation=d.surveyLocation;inspectorName=d.inspectorName||'';notes=d.notes||'';if(d.personalInfo)personalInfo=d.personalInfo;if(d.collapsedCards)collapsedCards=d.collapsedCards;}}catch(e){}var sl=localStorage.getItem('vl_v2');if(sl&&translations[sl])currentLang=sl;notificationsEnabled=localStorage.getItem('notif_enabled')==='true';document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';if(!hornets.length)hornets.push(createHornet('Frelon 1'));var savedResumed=localStorage.getItem('resumed_idx');if(savedResumed){resumedFromIndex=parseInt(savedResumed);}}
-function saveHist(){var hist=[];try{hist=JSON.parse(localStorage.getItem('vh_v2')||'[]');}catch(e){}var newEntry={date:new Date().toISOString(),location:{lat:surveyLocation.lat,lng:surveyLocation.lng,name:surveyLocation.name},hornets:hornets.map(function(h){return{name:h.name,direction:h.direction,flights:h.flights.slice(),color:h.color};}),notes:notes,inspectorName:inspectorName,personalInfo:personalInfo};if(resumedFromIndex>=0&&resumedFromIndex<hist.length){hist[resumedFromIndex]=newEntry;}else{hist.push(newEntry);}if(hist.length>MAX_HISTORY)hist=hist.slice(-MAX_HISTORY);var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;hist=hist.filter(function(e){return new Date(e.date)>new Date(cutoff);});try{localStorage.setItem('vh_v2',JSON.stringify(hist));}catch(e){}localStorage.setItem('resumed_idx',resumedFromIndex);sendNotification(t('pot_saved_notif'),''+(newEntry.location.name||t('no_name'))+' • '+(newEntry.hornets?newEntry.hornets.length:0)+' '+t('hornets'));checkHistoryExpiry();}
-
+  var sl = localStorage.getItem('vl');
+  if (sl && translations[sl]) currentLang = sl;
+  notificationsEnabled = localStorage.getItem('notif_enabled') === 'true';
+  document.getElementById('firstName').value = personalInfo.firstName || '';
+  document.getElementById('lastName').value = personalInfo.lastName || '';
+  document.getElementById('phone').value = personalInfo.phone || '';
+  if (!hornets.length) hornets.push(createHornet('Frelon 1'));
+  var savedResumed = localStorage.getItem('resumed_idx');
+  if (savedResumed) { resumedFromIndex = parseInt(savedResumed); }
+}
 function showAlert(message,icon){document.getElementById('customAlertMessage').textContent=message;document.getElementById('customAlertIcon').textContent=icon||'⚠️';document.getElementById('customAlertOverlay').style.display='flex';}
 function closeCustomAlert(){document.getElementById('customAlertOverlay').style.display='none';}
 function showConfirmAlert(message,icon,callback){document.getElementById('confirmAlertMessage').textContent=message;document.getElementById('confirmAlertIcon').textContent=icon||'⚠️';confirmCallback=callback;document.getElementById('confirmAlertOverlay').style.display='flex';}
@@ -490,22 +502,101 @@ function updateNotifButton(){var btn=document.getElementById('notifBtnLabel');if
 function checkHistoryExpiry(){var hist=getHist();var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;var expiring=hist.filter(function(e){var diff=new Date(e.date).getTime()-cutoff;return diff<24*60*60*1000&&diff>0;});if(expiring.length>0){sendNotification(t('history_expiry_title'),expiring.length+' '+t('history_expiry_text'));}}
 
 function showUndoButton(){var existing=document.getElementById('undoDelete');if(existing)existing.remove();var btn=document.createElement('button');btn.id='undoDelete';btn.className='btn-gold btn-sm';btn.innerHTML='↩️ '+t('undo_delete');btn.onclick=undoDelete;document.body.appendChild(btn);clearTimeout(undoTimer);undoTimer=setTimeout(function(){var b=document.getElementById('undoDelete');if(b)b.remove();lastDeleted=null;},5000);}
-function undoDelete(){if(!lastDeleted)return;if(Date.now()-lastDeleted.timestamp>5000)return;switch(lastDeleted.type){case'flight':var h=hornets.find(function(x){return x.id===lastDeleted.hornetId});if(h)h.flights.splice(lastDeleted.index,0,lastDeleted.value);break;case'hornet':if(hornets.length<MAX_HORNETS)hornets.push(lastDeleted.hornet);break;case'history':var hist=getHist();hist.splice(lastDeleted.index,0,lastDeleted.entry);localStorage.setItem('vh_v2',JSON.stringify(hist));showHistory();break;}renderAll();saveAll();if(map)drawAnalysis();lastDeleted=null;var b=document.getElementById('undoDelete');if(b)b.remove();showToast(t('undo_success'));}
-
+function undoDelete(){
+  if (!lastDeleted) return;
+  if (Date.now() - lastDeleted.timestamp > 5000) return;
+  switch (lastDeleted.type) {
+    case 'flight':
+      var h = hornets.find(function(x){ return x.id === lastDeleted.hornetId; });
+      if (h) h.flights.splice(lastDeleted.index, 0, lastDeleted.value);
+      break;
+    case 'hornet':
+      if (hornets.length < MAX_HORNETS) hornets.push(lastDeleted.hornet);
+      break;
+    case 'history':
+      var hist = getHist();
+      hist.splice(lastDeleted.index, 0, lastDeleted.entry);
+      localStorage.setItem('vh', JSON.stringify(hist));
+      showHistory();
+      break;
+  }
+  renderAll();
+  saveAll();
+  if (map) drawAnalysis();
+  lastDeleted = null;
+  var b = document.getElementById('undoDelete');
+  if (b) b.remove();
+  showToast(t('undo_success'));
+}
+    
 function deleteFlight(hid,idx){var h=hornets.find(function(x){return x.id===hid});if(!h||idx<0||idx>=h.flights.length)return;lastDeleted={type:'flight',hornetId:hid,index:idx,value:h.flights[idx],timestamp:Date.now()};h.flights.splice(idx,1);renderAll();saveAll();showUndoButton();}
 function deleteHornet(id){if(hornets.length<=1){showAlert(t('keep_one_hornet'),'🐝');return;}var h=hornets.find(function(x){return x.id===id});if(!h)return;lastDeleted={type:'hornet',hornet:h,timestamp:Date.now()};hornets=hornets.filter(function(x){return x.id!==id});delete collapsedCards[id];renderAll();saveAll();showUndoButton();}
-function deleteHistEntry(index){var hist=getHist();if(index<0||index>=hist.length)return;lastDeleted={type:'history',entry:hist[index],index:index,timestamp:Date.now()};hist.splice(index,1);localStorage.setItem('vh_v2',JSON.stringify(hist));showHistory();showUndoButton();}
-
-function resumeHistEntryByIndex(index){var hist=getHist();if(index<0||index>=hist.length){showAlert(t('entry_not_found'),'❌');return;}var entry=hist[index];var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasCurrentData){saveHist();}surveyLocation=entry.location||{lat:46.8,lng:6.8,name:''};inspectorName=entry.inspectorName||'';notes=entry.notes||'';if(entry.personalInfo){personalInfo=entry.personalInfo;}else{personalInfo={firstName:'',lastName:'',phone:''};}if(entry.hornets&&entry.hornets.length){hornets=entry.hornets.map(function(h){var nh=createHornet(h.name);nh.direction=h.direction||0;nh.flights=h.flights||[];nh.color=h.color||null;return nh;});}else{hornets=[createHornet('Frelon 1')];}resumedFromIndex=index;localStorage.setItem('resumed_idx',resumedFromIndex);document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';document.getElementById('locationInput').value=surveyLocation.name||surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);document.getElementById('locationDisplay').textContent=surveyLocation.name||surveyLocation.lat.toFixed(5)+', '+surveyLocation.lng.toFixed(5);document.getElementById('inspectorInput').value=inspectorName;document.getElementById('notesField').value=notes;updatePotMarker();if(map)map.setView([surveyLocation.lat,surveyLocation.lng],16);renderAll();showToast(t('pot_resumed'));}
-
+function deleteHistEntry(index){
+  var hist = getHist();
+  if (index < 0 || index >= hist.length) return;
+  lastDeleted = { type: 'history', entry: hist[index], index: index, timestamp: Date.now() };
+  hist.splice(index, 1);
+  localStorage.setItem('vh', JSON.stringify(hist));
+  showHistory();
+  showUndoButton();
+}
+    
+function resumeHistEntryByIndex(index){
+  var hist = getHist();
+  if (index < 0 || index >= hist.length) { showAlert(t('entry_not_found'), '❌'); return; }
+  var entry = hist[index];
+  var hasCurrentData = hornets.some(function(h){ return h.flights.length > 0; }) || surveyLocation.name || inspectorName || notes;
+  if (hasCurrentData) { saveHist(); }
+  surveyLocation = entry.location || { lat: 46.8, lng: 6.8, name: '' };
+  inspectorName = entry.inspectorName || '';
+  notes = entry.notes || '';
+  if (entry.personalInfo) {
+    personalInfo = entry.personalInfo;
+  } else {
+    personalInfo = { firstName: '', lastName: '', phone: '' };
+  }
+  if (entry.hornets && entry.hornets.length) {
+    hornets = entry.hornets.map(function(h){
+      var nh = createHornet(h.name);
+      nh.direction = h.direction || 0;
+      nh.flights = h.flights || [];
+      nh.color = h.color || null;
+      return nh;
+    });
+  } else {
+    hornets = [createHornet('Frelon 1')];
+  }
+  resumedFromIndex = index;
+  localStorage.setItem('resumed_idx', resumedFromIndex);
+  document.getElementById('firstName').value = personalInfo.firstName || '';
+  document.getElementById('lastName').value = personalInfo.lastName || '';
+  document.getElementById('phone').value = personalInfo.phone || '';
+  document.getElementById('locationInput').value = surveyLocation.name || surveyLocation.lat.toFixed(5) + ', ' + surveyLocation.lng.toFixed(5);
+  document.getElementById('locationDisplay').textContent = surveyLocation.name || surveyLocation.lat.toFixed(5) + ', ' + surveyLocation.lng.toFixed(5);
+  document.getElementById('inspectorInput').value = inspectorName;
+  document.getElementById('notesField').value = notes;
+  updatePotMarker();
+  if (map) map.setView([surveyLocation.lat, surveyLocation.lng], 16);
+  renderAll();
+  showToast(t('pot_resumed'));
+}
+    
 function toggleHistoricalFlights(d){historicalVisibility[d]=!historicalVisibility[d];drawAnalysis(getHist());}
 
 function openModal(id){document.getElementById(id).style.display='flex';}
 function closeModal(id){document.getElementById(id).style.display='none';if(id==='compassModal')stopCompass();}
 
 function openLangModal(){var langs=[{code:'fr',flag:'🇫🇷',name:'Français'},{code:'en',flag:'🇬🇧',name:'English'},{code:'de',flag:'🇩🇪',name:'Deutsch'},{code:'it',flag:'🇮🇹',name:'Italiano'},{code:'rm',flag:'🇨🇭',name:'Rumantsch'}];var html='';for(var i=0;i<langs.length;i++){html+='<div class="lang-option'+(currentLang===langs[i].code?' selected':'')+'" onclick="changeLanguage(\''+langs[i].code+'\')"><span class="lang-flag">'+langs[i].flag+'</span><span class="lang-name">'+langs[i].name+'</span></div>';}document.getElementById('langOptions').innerHTML=html;openModal('langModal');}
-function changeLanguage(lang){currentLang=lang;localStorage.setItem('vl_v2',lang);closeModal('langModal');applyTranslations();renderAll();if(map)drawAnalysis();showToast(t('lang_changed'));}
-
+function changeLanguage(lang){
+  currentLang = lang;
+  localStorage.setItem('vl', lang);
+  closeModal('langModal');
+  applyTranslations();
+  renderAll();
+  if (map) drawAnalysis();
+  showToast(t('lang_changed'));
+}
+    
 function openCompassModal(){openModal('compassModal');startCompass();setTimeout(drawGraduations,100);}
 function startCompass(){
   compassActive=true;
@@ -1219,8 +1310,83 @@ function exportKML() {
         }, 1200);
     }, 400);
                                       }                                  
-function importData(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);var hasCurrentData=hornets.some(function(h){return h.flights.length>0})||surveyLocation.name||inspectorName||notes;if(hasCurrentData){saveHist();}if(d.hornets)hornets=d.hornets.map(function(h){var nh=createHornet(h.name||'Frelon');nh.direction=h.direction||0;nh.flights=h.flights||[];nh.color=h.color||null;return nh;});if(d.surveyLocation)surveyLocation=d.surveyLocation;inspectorName=d.inspectorName||'';notes=d.notes||'';if(d.personalInfo)personalInfo=d.personalInfo;resumedFromIndex=-1;localStorage.setItem('resumed_idx',resumedFromIndex);document.getElementById('firstName').value=personalInfo.firstName||'';document.getElementById('lastName').value=personalInfo.lastName||'';document.getElementById('phone').value=personalInfo.phone||'';updatePotMarker();renderAll();saveAll();showToast(t('import_success'));}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
-function importHistory(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(Array.isArray(d)){var existingHist=getHist();var mergedHist=existingHist.slice();for(var i=0;i<d.length;i++){var isDuplicate=false;for(var j=0;j<mergedHist.length;j++){if(d[i].date===mergedHist[j].date&&d[i].location&&mergedHist[j].location&&d[i].location.lat===mergedHist[j].location.lat&&d[i].location.lng===mergedHist[j].location.lng){isDuplicate=true;break;}}if(!isDuplicate)mergedHist.push(d[i]);}mergedHist.sort(function(a,b){return new Date(a.date)-new Date(b.date);});var cutoff=Date.now()-HISTORY_DAYS*24*60*60*1000;mergedHist=mergedHist.filter(function(e){return new Date(e.date)>new Date(cutoff);});if(mergedHist.length>MAX_HISTORY)mergedHist=mergedHist.slice(-MAX_HISTORY);localStorage.setItem('vh_v2',JSON.stringify(mergedHist));var addedCount=mergedHist.length-existingHist.length;showToast(t('history_imported')+' ('+addedCount+' '+t('new_entries')+')');showHistory();}}catch(ex){showAlert(t('import_error'),'❌');}};reader.readAsText(f);e.target.value='';}
+function importData(e){
+  var f = e.target.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    try {
+      var d = JSON.parse(ev.target.result);
+      var hasCurrentData = hornets.some(function(h){ return h.flights.length > 0; }) || surveyLocation.name || inspectorName || notes;
+      if (hasCurrentData) { saveHist(); }
+      if (d.hornets) {
+        hornets = d.hornets.map(function(h){
+          var nh = createHornet(h.name || 'Frelon');
+          nh.direction = h.direction || 0;
+          nh.flights = h.flights || [];
+          nh.color = h.color || null;
+          return nh;
+        });
+      }
+      if (d.surveyLocation) surveyLocation = d.surveyLocation;
+      inspectorName = d.inspectorName || '';
+      notes = d.notes || '';
+      if (d.personalInfo) personalInfo = d.personalInfo;
+      resumedFromIndex = -1;
+      localStorage.setItem('resumed_idx', resumedFromIndex);
+      document.getElementById('firstName').value = personalInfo.firstName || '';
+      document.getElementById('lastName').value = personalInfo.lastName || '';
+      document.getElementById('phone').value = personalInfo.phone || '';
+      updatePotMarker();
+      renderAll();
+      saveAll();
+      showToast(t('import_success'));
+    } catch(ex) {
+      showAlert(t('import_error'), '❌');
+    }
+  };
+  reader.readAsText(f);
+  e.target.value = '';
+}
+function importHistory(e){
+  var f = e.target.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    try {
+      var d = JSON.parse(ev.target.result);
+      if (Array.isArray(d)) {
+        var existingHist = getHist();
+        var mergedHist = existingHist.slice();
+        for (var i = 0; i < d.length; i++) {
+          var isDuplicate = false;
+          for (var j = 0; j < mergedHist.length; j++) {
+            if (d[i].date === mergedHist[j].date &&
+                d[i].location && mergedHist[j].location &&
+                d[i].location.lat === mergedHist[j].location.lat &&
+                d[i].location.lng === mergedHist[j].location.lng) {
+              isDuplicate = true;
+              break;
+            }
+          }
+          if (!isDuplicate) mergedHist.push(d[i]);
+        }
+        mergedHist.sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
+        var cutoff = Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000;
+        mergedHist = mergedHist.filter(function(e){ return new Date(e.date) > new Date(cutoff); });
+        if (mergedHist.length > MAX_HISTORY) mergedHist = mergedHist.slice(-MAX_HISTORY);
+        localStorage.setItem('vh', JSON.stringify(mergedHist));
+        var addedCount = mergedHist.length - existingHist.length;
+        showToast(t('history_imported') + ' (' + addedCount + ' ' + t('new_entries') + ')');
+        showHistory();
+      }
+    } catch(ex) {
+      showAlert(t('import_error'), '❌');
+    }
+  };
+  reader.readAsText(f);
+  e.target.value = '';
+}
 
 function openVespafinderModal(){document.getElementById('vespafinderUrl').value='';openModal('vespafinderModal');}
 function parseVespafinderLink(url){
@@ -1296,8 +1462,33 @@ function showVespafinderChoice(data){
   };
 }
 
-function resetAll(){showConfirmAlert(t('confirm_reset'),'🔄',function(){saveHist();resumedFromIndex=-1;localStorage.removeItem('resumed_idx');hornets=[createHornet('Frelon 1')];surveyLocation={lat:46.8,lng:6.8,name:''};inspectorName='';notes='';personalInfo={firstName:'',lastName:'',phone:''};collapsedCards={};document.getElementById('locationInput').value='';document.getElementById('locationDisplay').textContent='';document.getElementById('inspectorInput').value='';document.getElementById('notesField').value='';document.getElementById('firstName').value='';document.getElementById('lastName').value='';document.getElementById('phone').value='';localStorage.removeItem('vd_v2');if(map){map.setView([46.8,6.8],16);}updatePotMarker();renderAll();saveAll();showToast(t('new_pot_created'));});}
-
+function resetAll(){
+  showConfirmAlert(t('confirm_reset'), '🔄', function(){
+    saveHist();
+    resumedFromIndex = -1;
+    localStorage.removeItem('resumed_idx');
+    hornets = [createHornet('Frelon 1')];
+    surveyLocation = { lat: 46.8, lng: 6.8, name: '' };
+    inspectorName = '';
+    notes = '';
+    personalInfo = { firstName: '', lastName: '', phone: '' };
+    collapsedCards = {};
+    document.getElementById('locationInput').value = '';
+    document.getElementById('locationDisplay').textContent = '';
+    document.getElementById('inspectorInput').value = '';
+    document.getElementById('notesField').value = '';
+    document.getElementById('firstName').value = '';
+    document.getElementById('lastName').value = '';
+    document.getElementById('phone').value = '';
+    localStorage.removeItem('vd');
+    if (map) { map.setView([46.8, 6.8], 16); }
+    updatePotMarker();
+    renderAll();
+    saveAll();
+    showToast(t('new_pot_created'));
+  });
+}
+    
 function changeHornetColor(hornetId){var h=hornets.find(function(x){return x.id===hornetId});if(!h)return;var currentColor=h.color;var html='<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;">';for(var i=0;i<COLORS.length;i++){var isSelected=(currentColor===COLORS[i]);html+='<div onclick="selectColor('+hornetId+',\''+COLORS[i]+'\')" class="color-dot'+(isSelected?' selected':'')+'" style="background:'+COLORS[i]+';" title="'+COLORS[i]+'"></div>';}html+='</div>';document.getElementById('colorPickerContent').innerHTML=html;openModal('colorPickerModal');}
 function selectColor(hornetId,color){var h=hornets.find(function(x){return x.id===hornetId});if(!h)return;for(var i=0;i<hornets.length;i++){var existingColor=hornets[i].color;if(hornets[i].id!==hornetId&&existingColor===color){showAlert(t('color_in_use')+' '+hornets[i].name,'🎨');return;}}h.color=color;closeModal('colorPickerModal');saveAll();renderAll();if(map)drawAnalysis();}
 
@@ -1468,18 +1659,10 @@ window.addEventListener('hashchange',handleHashRoute);
 // Called when user clicks "Ouvrir VespaTimer" from the site
 function exitSiteToApp(){
   closeSubPage();
-  checkFirstLaunchAfterSite();
 }
 
-function checkFirstLaunchAfterSite(){
-  // Show About modal exactly once, the first time the user closes the site
-  // (works identically in browser and PWA mode)
-  var aboutShown=localStorage.getItem('about_shown')==='true';
-  if(!aboutShown){
-    localStorage.setItem('about_shown','true');
-    setTimeout(function(){openModal('aboutModal');},500);
-  }
-}
+// Deprecated — About modal is now handled in boot()
+function checkFirstLaunchAfterSite(){}
 
 function checkFirstPWAOpen(){
   // Always open the site screen first — both browser and PWA mode
@@ -1607,18 +1790,23 @@ function boot(){
   updateNotifButton();
   applyTranslations();
   renderAll();
-  if(hornets.some(function(h){return h.timerRunning})){
+  if (hornets.some(function(h){ return h.timerRunning })) {
     startTimerInterval();
   }
   setTimeout(function(){
     initMap();
-    setTimeout(function(){if(map)drawAnalysis();},800);
-  },500);
+    setTimeout(function(){ if (map) drawAnalysis(); }, 800);
+  }, 500);
   handleUrlParams();
   handleHashRoute();
   updateDateTime();
   checkIOSInstall();
   checkFirstPWAOpen();
+  // Show About modal once, on first ever launch of the tool
+  if (localStorage.getItem('about_shown') !== 'true') {
+    localStorage.setItem('about_shown', 'true');
+    setTimeout(function(){ openModal('aboutModal'); }, 1500);
+  }
 }
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 </script>

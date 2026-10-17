@@ -1,0 +1,17 @@
+CREATE TABLE profiles (
+  user_id TEXT PRIMARY KEY,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE pots (
+  user_id TEXT PRIMARY KEY REFERENCES profiles(user_id) ON DELETE CASCADE,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE history (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT REFERENCES profiles(user_id) ON DELETE CASCADE,
+  entry_date TIMESTAMPTZ NOT NULL,
+  data JSONB NOT NULL
+);

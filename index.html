@@ -458,35 +458,7 @@ personal_info:'Infurmaziuns persunalas',first_name_placeholder:'Prenum',last_nam
 
 function t(key){return(translations[currentLang]&&translations[currentLang][key])||key;}
 function applyTranslations(){var els=document.querySelectorAll('[data-lang]');for(var i=0;i<els.length;i++){var key=els[i].getAttribute('data-lang');if(key==='about_footer2'){els[i].innerHTML=t(key);}else{els[i].textContent=t(key);}}var phs=document.querySelectorAll('[data-lang-placeholder]');for(var j=0;j<phs.length;j++)phs[j].placeholder=t(phs[j].getAttribute('data-lang-placeholder'));}
-window.netlifyIdentity.on("login", user => {
-  // 1. Fetch data from server
-  fetch('/.netlify/functions/load-data')
-    .then(res => res.json())
-    .then(data => {
-      if (data.pot) {
-        // Apply server pot to local state
-        hornets = data.pot.hornets || [];
-        surveyLocation = data.pot.surveyLocation || {lat:46.8, lng:6.8, name:''};
-        inspectorName = data.pot.inspectorName || '';
-        notes = data.pot.notes || '';
-        personalInfo = data.pot.personalInfo || {firstName:'', lastName:'', phone:''};
-        
-        // Apply server history to local storage
-        if (data.history) {
-          localStorage.setItem('vh', JSON.stringify(data.history));
-        }
-        
-        saveAll(); // Save locally
-        renderAll(); // Redraw UI
-        if(map) drawAnalysis();
-        showToast('☁️ Données synchronisées depuis le serveur');
-      }
-    })
-    .catch(err => console.log('Load failed', err));
 
-  // 2. Reload page to show data
-  window.location.reload(); 
-});
 
 function debouncedSave(){clearTimeout(debounceTimer);debounceTimer=setTimeout(saveAll,500);}
 function createHornet(name){var usedColors=hornets.filter(function(h){return h.color}).map(function(h){return h.color});var assignedColor=null;for(var j=0;j<COLORS.length;j++){if(usedColors.indexOf(COLORS[j])===-1){assignedColor=COLORS[j];break;}}if(!assignedColor)assignedColor=COLORS[0];return{id:Date.now()+Math.random(),name:name||'Frelon 1',direction:0,flights:[],timerRunning:false,timerStart:null,elapsedSeconds:0,color:assignedColor};}
